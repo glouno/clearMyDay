@@ -4,8 +4,8 @@ export interface CalendarEvent {
   uid: string;
   summary: string;
   description?: string;
-  start: Date;
-  end: Date;
+  start: string | Date;
+  end: string | Date;
   location?: string;
   categories?: string[];
   rrule?: string;

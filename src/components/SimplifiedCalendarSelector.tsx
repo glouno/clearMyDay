@@ -18,6 +18,7 @@ export default function SimplifiedCalendarSelector({ onFilterChange, onPreview, 
   const [calendarName, setCalendarName] = useState<string>('My Sorbonne Calendar');
   const [availableGroups, setAvailableGroups] = useState<{[courseId: string]: string[]}>({});
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   // Get available courses based on selected masters
   const availableCourses = selectedMasters.flatMap(master => 
@@ -173,7 +174,7 @@ export default function SimplifiedCalendarSelector({ onFilterChange, onPreview, 
             type="text"
             value={calendarName}
             onChange={(e) => setCalendarName(e.target.value)}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
             placeholder="My Sorbonne Calendar"
           />
         </div>
@@ -236,7 +237,7 @@ export default function SimplifiedCalendarSelector({ onFilterChange, onPreview, 
                   <select
                     value={courseGroups[courseId] || ''}
                     onChange={(e) => updateCourseGroup(courseId, e.target.value)}
-                    className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                   >
                     <option value="">Select Group</option>
                     {availableGroups[courseId]?.map(group => (
@@ -257,7 +258,18 @@ export default function SimplifiedCalendarSelector({ onFilterChange, onPreview, 
         {/* Action Buttons */}
         <div className="flex gap-4">
           <button
-            onClick={onPreview}
+            onClick={() => {
+              setShowPreview(true);
+              setTimeout(() => {
+                const previewSection = document.getElementById('filtered-events-preview');
+                if (previewSection) {
+                  previewSection.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                  });
+                }
+              }, 100);
+            }}
             disabled={loading || selectedCourses.length === 0}
             className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -274,11 +286,15 @@ export default function SimplifiedCalendarSelector({ onFilterChange, onPreview, 
       </div>
 
       {/* Filtered Events Preview */}
-      <FilteredEventsPreview
-        courseGroups={courseGroups}
-        selectedCourses={selectedCourses}
-        selectedMasters={selectedMasters}
-      />
+      {showPreview && (
+        <div id="filtered-events-preview">
+          <FilteredEventsPreview
+            courseGroups={courseGroups}
+            selectedCourses={selectedCourses}
+            selectedMasters={selectedMasters}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -385,7 +385,7 @@ export class CalendarParser {
   }
 
   /**
-   * Generate occurrences for a recurring event (simplified implementation)
+   * Generate occurrences for a recurring event using RRULE library
    */
   private generateRecurrenceOccurrences(
     event: CalendarEvent, 
@@ -393,17 +393,48 @@ export class CalendarParser {
   ): CalendarEvent[] {
     const occurrences: CalendarEvent[] = [];
     
-    // This is a simplified implementation
-    // In production, use a proper RRULE library like 'rrule'
     if (!event.rrule) {
       return [event];
     }
 
-    // For now, just return the original event
-    // TODO: Implement proper RRULE parsing
-    occurrences.push(event);
-
-    return occurrences;
+    try {
+      // Import RRule dynamically to avoid issues
+      const { RRule } = require('rrule');
+      
+      // Parse the RRULE string
+      const rrule = RRule.fromString(event.rrule);
+      
+      // Get the start date from the event
+      const eventStart = new Date(event.start);
+      const eventEnd = new Date(event.end);
+      const duration = eventEnd.getTime() - eventStart.getTime();
+      
+      // Generate occurrences within the date range
+      const occurrenceDates = rrule.between(dateRange.start, dateRange.end, true);
+      
+      occurrenceDates.forEach((occurrenceDate: Date, index: number) => {
+        const occurrenceEnd = new Date(occurrenceDate.getTime() + duration);
+        
+        // Create a new event for each occurrence
+        const occurrence: CalendarEvent = {
+          ...event,
+          uid: `${event.uid}-occurrence-${index}`,
+          start: occurrenceDate.toISOString(),
+          end: occurrenceEnd.toISOString(),
+          // Remove rrule from individual occurrences
+          rrule: undefined
+        };
+        
+        occurrences.push(occurrence);
+      });
+      
+      return occurrences;
+      
+    } catch (error) {
+      console.warn('Failed to parse RRULE for event:', event.uid, event.rrule, error);
+      // Fallback to original event
+      return [event];
+    }
   }
 
   /**
