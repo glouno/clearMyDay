@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { enUS } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import { expandRecurringEvents, type RecurringEvent, type ExpandedEvent } from '@/lib/recurrence-handler';
 
 interface WeeklyCalendarPreviewProps {
   courseGroups: { [courseId: string]: string };
@@ -24,7 +25,7 @@ interface CalendarEvent {
 }
 
 const locales = {
-  'fr': fr,
+  'en-US': enUS,
 };
 
 const localizer = dateFnsLocalizer({
@@ -45,8 +46,8 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
 
     setLoading(true);
     try {
-      // Generate a test calendar with the selected groups
-      const response = await fetch('/api/generate-calendar', {
+      // Use debug endpoint to see what's happening
+      const response = await fetch('/api/debug-calendar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -63,15 +64,65 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
         })
       });
 
-      const data = await response.json();
-      if (data.success) {
-        // Fetch the filtered calendar
-        const calendarResponse = await fetch(data.data.subscriptionUrl);
-        const icsContent = await calendarResponse.text();
+      const debugData = await response.json();
+      console.log('Debug Calendar Data:', debugData);
+      console.log('Event Blocks:', debugData.debug?.eventBlocks);
+      console.log('Parse Errors:', debugData.debug?.parseErrors);
 
-        // Parse ICS content to extract events
-        const parsedEvents = parseICSToCalendarEvents(icsContent);
-        setEvents(parsedEvents);
+      if (debugData.success) {
+        // Log detailed info about event blocks
+        debugData.debug.eventBlocks.forEach((block: any, index: number) => {
+          console.log(`Event Block ${index}:`, {
+            parsed: block.parsed,
+            parseError: block.parseError,
+            rrule: block.parsed?.rrule,
+            rawLines: block.rawLines?.slice(0, 5) // First 5 lines only
+          });
+        });
+
+        // Convert debug event blocks to recurring events
+        const recurringEvents: RecurringEvent[] = debugData.debug.eventBlocks
+          .filter((block: any) => block.parsed && !block.parseError)
+          .map((block: any, index: number) => ({
+            id: block.parsed.id || `event-${index}`,
+            title: block.parsed.title,
+            start: new Date(block.parsed.start),
+            end: new Date(block.parsed.end),
+            rrule: block.parsed.rrule,
+            location: block.parsed.location,
+            description: block.parsed.description
+          }));
+
+        console.log('Recurring Events:', recurringEvents);
+
+        // Expand recurring events for the current view period
+        const now = new Date();
+        const viewStart = new Date(now.getFullYear(), now.getMonth() - 2, 1); // 2 months ago
+        const viewEnd = new Date(now.getFullYear(), now.getMonth() + 4, 0); // 4 months ahead
+        
+        const expandedEvents = expandRecurringEvents(recurringEvents, {
+          start: viewStart,
+          end: viewEnd
+        });
+
+        console.log('Expanded Events:', expandedEvents);
+
+        // Convert to calendar events
+        const calendarEvents: CalendarEvent[] = expandedEvents.map((event, index) => ({
+          id: event.id,
+          title: event.title + (event.isRecurring ? ' (R)' : ''), // Mark recurring events
+          start: event.start,
+          end: event.end,
+          resource: {
+            type: getEventType(event.title),
+            group: getEventGroup(event.title)
+          }
+        }));
+
+        console.log('Final Calendar Events:', calendarEvents.length);
+        setEvents(calendarEvents);
+      } else {
+        console.error('Debug failed:', debugData);
       }
     } catch (error) {
       console.error('Failed to fetch calendar events:', error);
@@ -82,7 +133,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
 
   const parseICSToCalendarEvents = (icsContent: string): CalendarEvent[] => {
     const events: CalendarEvent[] = [];
-    const lines = icsContent.split('\n');
+    const lines = icsContent.split(/\r\n|\n/);
 
     let currentEvent: Partial<CalendarEvent> = {};
     let inEvent = false;
@@ -197,19 +248,19 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
   };
 
   const messages = {
-    allDay: 'Toute la journée',
-    previous: 'Précédent',
-    next: 'Suivant',
-    today: 'Aujourd\'hui',
-    month: 'Mois',
-    week: 'Semaine',
-    day: 'Jour',
+    allDay: 'All Day',
+    previous: 'Previous',
+    next: 'Next',
+    today: 'Today',
+    month: 'Month',
+    week: 'Week',
+    day: 'Day',
     agenda: 'Agenda',
     date: 'Date',
-    time: 'Heure',
-    event: 'Événement',
-    noEventsInRange: 'Aucun événement dans cette période.',
-    showMore: (total: number) => `+${total} autres`,
+    time: 'Time',
+    event: 'Event',
+    noEventsInRange: 'No events in this range.',
+    showMore: (total: number) => `+${total} more`,
   };
 
   return (
@@ -293,11 +344,11 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
           onView={setCurrentView}
           eventPropGetter={eventStyleGetter}
           messages={messages}
-          culture="fr"
+          culture="en-US"
           components={{
             event: ({ event }: { event: CalendarEvent }) => (
               <div className="truncate px-1">
-                <div className="font-medium">{event.title}</div>
+                <div className="font-medium text-xs">{event.title}</div>
                 {event.resource.group && (
                   <div className="text-xs opacity-90">
                     {event.resource.type.toUpperCase()} {event.resource.group}
@@ -309,23 +360,43 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
         />
       </div>
 
-      <div className="mt-4 flex gap-4 text-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded" style={{ backgroundColor: '#3B82F6' }}></div>
-          <span>Cours</span>
+      <div className="mt-4 space-y-3">
+        {/* Event Type Legend */}
+        <div className="flex gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: '#3B82F6' }}></div>
+            <span>Cours</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: '#10B981' }}></div>
+            <span>TD</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: '#8B5CF6' }}></div>
+            <span>TME</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: '#EF4444' }}></div>
+            <span>Exam</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded" style={{ backgroundColor: '#10B981' }}></div>
-          <span>TD</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded" style={{ backgroundColor: '#8B5CF6' }}></div>
-          <span>TME</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded" style={{ backgroundColor: '#EF4444' }}></div>
-          <span>Exam</span>
-        </div>
+
+        {/* Event Statistics */}
+        {events.length > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+            <div className="text-sm font-medium text-blue-800">
+              Calendar Statistics
+            </div>
+            <div className="text-sm text-blue-700 mt-1">
+              Total Events: {events.length} | 
+              Recurring Events: {events.filter(e => e.title.includes('(R)')).length} | 
+              One-time Events: {events.filter(e => !e.title.includes('(R)')).length}
+            </div>
+            <div className="text-xs text-blue-600 mt-1">
+              Events marked with (R) are recurring occurrences expanded from RRULE
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
