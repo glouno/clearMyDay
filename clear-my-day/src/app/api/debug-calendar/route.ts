@@ -101,6 +101,11 @@ function parseEventBlock(lines: string[]): any {
         const dateStr = line.substring(colonIndex + 1);
         event.start = parseICSDate(dateStr);
         event.rawStart = dateStr;
+        // Extract timezone info if present
+        if (line.includes('TZID=')) {
+          const tzMatch = line.match(/TZID=([^:]+)/);
+          if (tzMatch) event.timezone = tzMatch[1];
+        }
       }
     } else if (line.startsWith('DTEND')) {
       // Handle both DTEND: and DTEND;TZID=Europe/Paris: formats
@@ -118,6 +123,40 @@ function parseEventBlock(lines: string[]): any {
       event.location = line.substring(9);
     } else if (line.startsWith('DESCRIPTION:')) {
       event.description = line.substring(12);
+    } else if (line.startsWith('CREATED:')) {
+      event.created = line.substring(8);
+    } else if (line.startsWith('LAST-MODIFIED:')) {
+      event.lastModified = line.substring(14);
+    } else if (line.startsWith('DTSTAMP:')) {
+      event.dtstamp = line.substring(8);
+    } else if (line.startsWith('STATUS:')) {
+      event.status = line.substring(7);
+    } else if (line.startsWith('TRANSP:')) {
+      event.transparency = line.substring(8);
+    } else if (line.startsWith('SEQUENCE:')) {
+      event.sequence = parseInt(line.substring(9));
+    } else if (line.startsWith('CATEGORIES:')) {
+      event.categories = line.substring(11).split(',');
+    } else if (line.startsWith('CLASS:')) {
+      event.classification = line.substring(6);
+    } else if (line.startsWith('PRIORITY:')) {
+      event.priority = parseInt(line.substring(9));
+    } else if (line.startsWith('ORGANIZER')) {
+      event.organizer = line.substring(line.indexOf(':') + 1);
+    } else if (line.startsWith('ATTENDEE')) {
+      if (!event.attendees) event.attendees = [];
+      event.attendees.push(line.substring(line.indexOf(':') + 1));
+    } else if (line.startsWith('RECURRENCE-ID')) {
+      const colonIndex = line.indexOf(':');
+      if (colonIndex !== -1) {
+        event.recurrenceId = parseICSDate(line.substring(colonIndex + 1));
+      }
+    } else if (line.startsWith('EXDATE')) {
+      if (!event.exdates) event.exdates = [];
+      const colonIndex = line.indexOf(':');
+      if (colonIndex !== -1) {
+        event.exdates.push(parseICSDate(line.substring(colonIndex + 1)));
+      }
     }
   }
   

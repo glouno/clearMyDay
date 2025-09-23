@@ -40,6 +40,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentView, setCurrentView] = useState('week');
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   const fetchEvents = async () => {
     if (selectedCourses.length === 0 || selectedMasters.length === 0) return;
@@ -95,14 +96,14 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
 
         console.log('Recurring Events:', recurringEvents);
 
-        // Expand recurring events for the current view period
-        const now = new Date();
-        const viewStart = new Date(now.getFullYear(), now.getMonth() - 2, 1); // 2 months ago
-        const viewEnd = new Date(now.getFullYear(), now.getMonth() + 4, 0); // 4 months ahead
+        // Expand recurring events using a wider range to capture all academic events
+        // The RRULE UNTIL dates will automatically limit the expansion
+        const academicYearStart = new Date(2024, 8, 1); // September 1, 2024
+        const academicYearEnd = new Date(2026, 6, 31); // July 31, 2026
         
         const expandedEvents = expandRecurringEvents(recurringEvents, {
-          start: viewStart,
-          end: viewEnd
+          start: academicYearStart,
+          end: academicYearEnd
         });
 
         console.log('Expanded Events:', expandedEvents);
@@ -342,6 +343,8 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
           style={{ height: '100%' }}
           view={currentView as any}
           onView={setCurrentView}
+          date={currentDate}
+          onNavigate={setCurrentDate}
           eventPropGetter={eventStyleGetter}
           messages={messages}
           culture="en-US"

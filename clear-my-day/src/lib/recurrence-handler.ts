@@ -46,14 +46,17 @@ export function expandRecurringEvents(
     }
 
     try {
-      // Parse the RRULE
+      // Parse the RRULE - it should automatically respect UNTIL dates
       const rrule = RRule.fromString(event.rrule);
       
       // Calculate event duration
       const duration = event.end.getTime() - event.start.getTime();
       
       // Generate occurrences within the date range
+      // The RRULE library will automatically stop at UNTIL date if specified
       const occurrences = rrule.between(dateRange.start, dateRange.end, true);
+      
+      console.log(`Event ${event.title}: RRULE=${event.rrule}, Generated ${occurrences.length} occurrences`);
       
       occurrences.forEach((occurrenceStart, occurrenceIndex) => {
         const occurrenceEnd = new Date(occurrenceStart.getTime() + duration);
