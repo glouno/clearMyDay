@@ -192,15 +192,9 @@ function parseICSDate(dateStr: string, timezone?: string): Date {
       // UTC time
       date = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}Z`);
     } else if (timezone === 'Europe/Paris') {
-      // Europe/Paris timezone - create date and adjust for timezone
-      const isoString = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
-      // Create a date assuming it's in Europe/Paris timezone
-      // We need to convert from Europe/Paris to UTC for proper handling
-      const tempDate = new Date(isoString);
-      const utcTime = tempDate.getTime() + (tempDate.getTimezoneOffset() * 60000);
-      // Adjust for Europe/Paris offset (CET/CEST)
-      const parisOffset = getParisTzOffset(tempDate);
-      date = new Date(utcTime + (parisOffset * 60000));
+      // Simplified approach: treat as local time for now
+      // The issue might be in the UI component, not the timezone conversion
+      date = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`);
     } else {
       // Local time (no timezone specified)
       date = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`);
@@ -223,18 +217,3 @@ function parseICSDate(dateStr: string, timezone?: string): Date {
   }
 }
 
-// Helper function to get Paris timezone offset in minutes
-function getParisTzOffset(date: Date): number {
-  // Europe/Paris is UTC+1 (CET) in winter, UTC+2 (CEST) in summer
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  const day = date.getDate();
-  
-  // Rough DST calculation for Europe/Paris
-  // DST starts last Sunday in March, ends last Sunday in October
-  const isDST = (month > 2 && month < 9) || 
-                (month === 2 && day >= 25) || 
-                (month === 9 && day < 25);
-  
-  return isDST ? -120 : -60; // Negative because we're converting TO UTC
-}

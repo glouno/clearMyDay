@@ -122,16 +122,29 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
         console.log('Expanded Events:', expandedEvents);
 
         // Convert to calendar events
-        const calendarEvents: CalendarEvent[] = expandedEvents.map((event, index) => ({
-          id: event.id,
-          title: event.title + (event.isRecurring ? ' (R)' : ''), // Mark recurring events
-          start: event.start,
-          end: event.end,
-          resource: {
-            type: getEventType(event.title),
-            group: getEventGroup(event.title)
+        const calendarEvents: CalendarEvent[] = expandedEvents.map((event, index) => {
+          // Add detailed logging for problematic events
+          if (event.start.getFullYear() >= 2025) {
+            console.log(`🔍 2025+ Event ${index}:`, {
+              title: event.title,
+              originalStart: event.start.toISOString(),
+              localStart: event.start.toLocaleString(),
+              day: event.start.getDay(), // 0=Sunday, 1=Monday, etc.
+              isRecurring: event.isRecurring
+            });
           }
-        }));
+          
+          return {
+            id: event.id,
+            title: event.title + (event.isRecurring ? ' (R)' : ''), // Mark recurring events
+            start: event.start,
+            end: event.end,
+            resource: {
+              type: getEventType(event.title),
+              group: getEventGroup(event.title)
+            }
+          };
+        });
 
         console.log('Final Calendar Events:', calendarEvents.length);
         setEvents(calendarEvents);
