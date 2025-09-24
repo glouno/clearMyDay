@@ -161,31 +161,31 @@ export const ALL_SORBONNE_MASTERS: Record<string, SorborneCalendarSource> = {
 };
 
 // Subset of confirmed working masters (for production)
-// Based on accessibility testing - these 11 M1 + 7 M2 masters are confirmed working
+// Based on accessibility testing - these masters are confirmed working
 export const CONFIRMED_MASTERS: Record<string, SorborneCalendarSource> = {
-  // Original confirmed M1 masters
+  // ===== M1 MASTERS =====
   DAC: ALL_SORBONNE_MASTERS.DAC,
   IMA: ALL_SORBONNE_MASTERS.IMA,
   ANDROIDE: ALL_SORBONNE_MASTERS.ANDROIDE,
-  
-  // Newly confirmed M1 masters
   BIM: ALL_SORBONNE_MASTERS.BIM,
+  SFPN: ALL_SORBONNE_MASTERS.SFPN,
+  IQ: ALL_SORBONNE_MASTERS.IQ,
   RES: ALL_SORBONNE_MASTERS.RES,
   SAR: ALL_SORBONNE_MASTERS.SAR,
   SESI: ALL_SORBONNE_MASTERS.SESI,
   STL: ALL_SORBONNE_MASTERS.STL,
-  HPC: ALL_SORBONNE_MASTERS.HPC,
   
-  // Confirmed M2 masters
+  // ===== M2 MASTERS =====
   DAC_M2: ALL_SORBONNE_MASTERS.DAC_M2,
   IMA_M2: ALL_SORBONNE_MASTERS.IMA_M2,
   ANDROIDE_M2: ALL_SORBONNE_MASTERS.ANDROIDE_M2,
   BIM_M2: ALL_SORBONNE_MASTERS.BIM_M2,
+  SFPN_M2: ALL_SORBONNE_MASTERS.SFPN_M2,
+  IQ_M2: ALL_SORBONNE_MASTERS.IQ_M2,
   RES_M2: ALL_SORBONNE_MASTERS.RES_M2,
   SAR_M2: ALL_SORBONNE_MASTERS.SAR_M2,
   SESI_M2: ALL_SORBONNE_MASTERS.SESI_M2,
-  STL_M2: ALL_SORBONNE_MASTERS.STL_M2,
-  HPC_M2: ALL_SORBONNE_MASTERS.HPC_M2
+  STL_M2: ALL_SORBONNE_MASTERS.STL_M2
 };
 
 // Function to test if a CalDAV URL is accessible
