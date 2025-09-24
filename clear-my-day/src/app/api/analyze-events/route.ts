@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { caldavClient } from '@/lib/caldav-client';
+import { SORBONNE_CALENDARS } from '@/lib/constants';
 
 interface EventAnalysis {
   summary: string;
@@ -83,10 +84,10 @@ export async function GET(request: NextRequest) {
     const courseFilter = searchParams.get('course'); // Optional course filter
     const analyzeTimezones = searchParams.get('timezones') === 'true'; // Timezone analysis flag
     
-    // Validate sources
+    // Validate sources against available calendars
     const validSources = sources.filter(source => 
-      ['DAC', 'IMA', 'ANDROIDE'].includes(source)
-    ) as ('DAC' | 'IMA' | 'ANDROIDE')[];
+      Object.keys(SORBONNE_CALENDARS).includes(source)
+    );
 
     if (validSources.length === 0) {
       return NextResponse.json(
