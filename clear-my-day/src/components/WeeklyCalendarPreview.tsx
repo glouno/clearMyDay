@@ -84,15 +84,27 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
         // Convert debug event blocks to recurring events
         const recurringEvents: RecurringEvent[] = debugData.debug.eventBlocks
           .filter((block: any) => block.parsed && !block.parseError)
-          .map((block: any, index: number) => ({
-            id: block.parsed.id || `event-${index}`,
-            title: block.parsed.title,
-            start: new Date(block.parsed.start),
-            end: new Date(block.parsed.end),
-            rrule: block.parsed.rrule,
-            location: block.parsed.location,
-            description: block.parsed.description
-          }));
+          .map((block: any, index: number) => {
+            // The API already returns properly parsed Date objects, use them directly
+            const startDate = block.parsed.start instanceof Date ? block.parsed.start : new Date(block.parsed.start);
+            const endDate = block.parsed.end instanceof Date ? block.parsed.end : new Date(block.parsed.end);
+            
+            console.log(`Event ${index}: ${block.parsed.title}`, {
+              rawStart: block.parsed.rawStart,
+              parsedStart: startDate.toISOString(),
+              timezone: block.parsed.timezone
+            });
+            
+            return {
+              id: block.parsed.id || `event-${index}`,
+              title: block.parsed.title,
+              start: startDate,
+              end: endDate,
+              rrule: block.parsed.rrule,
+              location: block.parsed.location,
+              description: block.parsed.description
+            };
+          });
 
         console.log('Recurring Events:', recurringEvents);
 
