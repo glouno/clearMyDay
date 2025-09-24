@@ -8,21 +8,21 @@ export const ALL_SORBONNE_MASTERS: Record<string, SorborneCalendarSource> = {
   DAC: {
     id: 'DAC',
     name: 'M1 DAC (Data, Apprentissage, Connaissances)',
-    url: 'https://cal.ufr-info-p6.jussieu.fr/caldav.php/DAC/M1_DAC',
+    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/DAC/M1_DAC',
     courses: ['DALAS', 'LRC', 'MLBDA'],
     defaultGroups: { td: '5', tme: 'B' }
   },
   IMA: {
     id: 'IMA',
     name: 'M1 IMA (Informatique Médicale et Applications)',
-    url: 'https://cal.ufr-info-p6.jussieu.fr/caldav.php/IMA/M1_IMA',
+    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/IMA/M1_IMA',
     courses: ['MAPSI'],
     defaultGroups: { td: '5' }
   },
   ANDROIDE: {
     id: 'ANDROIDE',
     name: 'M1 ANDROIDE (Agents Distribués, Robotique, Recherche Opérationnelle, Interaction, Décision)',
-    url: 'https://cal.ufr-info-p6.jussieu.fr/caldav.php/ANDROIDE/M1_ANDROIDE',
+    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/ANDROIDE/M1_ANDROIDE',
     courses: ['MOGPL'],
     defaultGroups: {}
   },
@@ -31,77 +31,77 @@ export const ALL_SORBONNE_MASTERS: Record<string, SorborneCalendarSource> = {
   AI2D: {
     id: 'AI2D',
     name: 'M1 AI2D (Artificial Intelligence, Algorithms, Interactions and Decision-making)',
-    url: 'https://cal.ufr-info-p6.jussieu.fr/caldav.php/AI2D/M1_AI2D',
+    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/AI2D/M1_AI2D',
     courses: [], // To be discovered
     defaultGroups: {}
   },
   BIM: {
     id: 'BIM',
     name: 'M1 BIM (Bio-Informatics and Modeling)',
-    url: 'https://cal.ufr-info-p6.jussieu.fr/caldav.php/BIM/M1_BIM',
+    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/BIM/M1_BIM',
     courses: [], // To be discovered
     defaultGroups: {}
   },
   CCA: {
     id: 'CCA',
     name: 'M1 CCA (Cryptology, High Performance Computing and Algorithmics)',
-    url: 'https://cal.ufr-info-p6.jussieu.fr/caldav.php/CCA/M1_CCA',
+    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/CCA/M1_CCA',
     courses: [], // To be discovered
     defaultGroups: {}
   },
   MIND: {
     id: 'MIND',
     name: 'M1 MIND (Machine learning, artificial INtelligence and Data)',
-    url: 'https://cal.ufr-info-p6.jussieu.fr/caldav.php/MIND/M1_MIND',
+    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/MIND/M1_MIND',
     courses: [], // To be discovered
     defaultGroups: {}
   },
   QI: {
     id: 'QI',
     name: 'M1 QI (Quantum Information)',
-    url: 'https://cal.ufr-info-p6.jussieu.fr/caldav.php/QI/M1_QI',
+    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/QI/M1_QI',
     courses: [], // To be discovered
     defaultGroups: {}
   },
   RES: {
     id: 'RES',
     name: 'M1 RES (Computer Networks: Internet, Cybersecurity, Cloud and Automation)',
-    url: 'https://cal.ufr-info-p6.jussieu.fr/caldav.php/RES/M1_RES',
+    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/RES/M1_RES',
     courses: [], // To be discovered
     defaultGroups: {}
   },
   SAR: {
     id: 'SAR',
     name: 'M1 SAR (Distributed Systems and Applications)',
-    url: 'https://cal.ufr-info-p6.jussieu.fr/caldav.php/SAR/M1_SAR',
+    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/SAR/M1_SAR',
     courses: [], // To be discovered
     defaultGroups: {}
   },
   SESI: {
     id: 'SESI',
     name: 'M1 SESI (Electronic Systems and Computer Systems)',
-    url: 'https://cal.ufr-info-p6.jussieu.fr/caldav.php/SESI/M1_SESI',
+    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/SESI/M1_SESI',
     courses: [], // To be discovered
     defaultGroups: {}
   },
   STL: {
     id: 'STL',
     name: 'M1 STL (Software Science and Technology)',
-    url: 'https://cal.ufr-info-p6.jussieu.fr/caldav.php/STL/M1_STL',
+    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/STL/M1_STL',
     courses: [], // To be discovered
     defaultGroups: {}
   },
   DIGIT: {
     id: 'DIGIT',
     name: 'M1 DIGIT (International Program)',
-    url: 'https://cal.ufr-info-p6.jussieu.fr/caldav.php/DIGIT/M1_DIGIT',
+    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/DIGIT/M1_DIGIT',
     courses: [], // To be discovered
     defaultGroups: {}
   },
   HPC: {
     id: 'HPC',
     name: 'M1 HPC (High Performance Computing)',
-    url: 'https://cal.ufr-info-p6.jussieu.fr/caldav.php/HPC/M1_HPC',
+    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/HPC/M1_HPC',
     courses: [], // To be discovered
     defaultGroups: {}
   },
@@ -110,14 +110,14 @@ export const ALL_SORBONNE_MASTERS: Record<string, SorborneCalendarSource> = {
   DAC_M2: {
     id: 'DAC_M2',
     name: 'M2 DAC (Data, Apprentissage, Connaissances)',
-    url: 'https://cal.ufr-info-p6.jussieu.fr/caldav.php/DAC/M2_DAC',
+    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/DAC/M2_DAC',
     courses: [], // To be discovered
     defaultGroups: {}
   },
   IMA_M2: {
     id: 'IMA_M2',
     name: 'M2 IMA (Informatique Médicale et Applications)',
-    url: 'https://cal.ufr-info-p6.jussieu.fr/caldav.php/IMA/M2_IMA',
+    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/IMA/M2_IMA',
     courses: [], // To be discovered
     defaultGroups: {}
   }
@@ -133,23 +133,20 @@ export const CONFIRMED_MASTERS: Record<string, SorborneCalendarSource> = {
 // Function to test if a CalDAV URL is accessible
 export async function testCalDAVEndpoint(master: SorborneCalendarSource): Promise<boolean> {
   try {
-    const response = await fetch(master.url, {
-      method: 'PROPFIND',
+    // Extract URL without embedded auth for fetch (we'll use headers instead)
+    const urlWithoutAuth = master.url.replace('student.master:guest@', '');
+    
+    const response = await fetch(urlWithoutAuth, {
+      method: 'GET', // Simple GET request to test accessibility
       headers: {
         'Authorization': 'Basic ' + btoa('student.master:guest'),
-        'Content-Type': 'application/xml',
-        'Depth': '1'
-      },
-      body: `<?xml version="1.0" encoding="utf-8" ?>
-        <D:propfind xmlns:D="DAV:">
-          <D:prop>
-            <D:displayname/>
-            <D:resourcetype/>
-          </D:prop>
-        </D:propfind>`
+        'User-Agent': 'ClearMyDay/1.0 (Calendar Test)',
+        'Accept': 'text/calendar, application/calendar+xml'
+      }
     });
     
-    return response.status === 207; // Multi-Status response indicates success
+    // Accept various success codes for CalDAV
+    return response.status === 200 || response.status === 207 || response.status === 302;
   } catch (error) {
     console.error(`Failed to test ${master.id}:`, error);
     return false;
