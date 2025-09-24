@@ -13,7 +13,7 @@ export interface CalendarEvent {
 }
 
 export interface FilterConfig {
-  masters: ('DAC' | 'IMA' | 'ANDROIDE')[];
+  masters: string[]; // Allow any master program IDs
   courses: string[];
   groups: {
     td?: string;    // e.g., "TD2", "Group 5" (legacy global)
@@ -34,7 +34,7 @@ export interface FilterConfig {
 }
 
 export interface SorborneCalendarSource {
-  id: 'DAC' | 'IMA' | 'ANDROIDE';
+  id: string; // Allow any string for master program IDs
   name: string;
   url: string;
   courses: string[];

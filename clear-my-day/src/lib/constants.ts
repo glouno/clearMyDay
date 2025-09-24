@@ -1,36 +1,12 @@
 // Configuration constants for the ClearMyDay application
 
 import { SorborneCalendarSource } from './types';
+import { CONFIRMED_MASTERS, ALL_SORBONNE_MASTERS } from './sorbonne-masters';
 
 // Sorbonne University Calendar Sources
-export const SORBONNE_CALENDARS: Record<string, SorborneCalendarSource> = {
-  DAC: {
-    id: 'DAC',
-    name: 'M1 DAC (Data, Apprentissage, Connaissances)',
-    url: 'https://cal.ufr-info-p6.jussieu.fr/caldav.php/DAC/M1_DAC',
-    courses: ['DALAS', 'LRC', 'MLBDA'],
-    defaultGroups: {
-      td: '5',
-      tme: 'B'
-    }
-  },
-  IMA: {
-    id: 'IMA',
-    name: 'M1 IMA (Informatique Médicale et Applications)',
-    url: 'https://cal.ufr-info-p6.jussieu.fr/caldav.php/IMA/M1_IMA',
-    courses: ['MAPSI'],
-    defaultGroups: {
-      td: '5'
-    }
-  },
-  ANDROIDE: {
-    id: 'ANDROIDE',
-    name: 'M1 ANDROIDE (Agents Distribués, Robotique, Recherche Opérationnelle, Interaction, Décision)',
-    url: 'https://cal.ufr-info-p6.jussieu.fr/caldav.php/ANDROIDE/M1_ANDROIDE',
-    courses: ['MOGPL'],
-    defaultGroups: {}
-  }
-};
+// Use CONFIRMED_MASTERS for production, ALL_SORBONNE_MASTERS for testing
+export const SORBONNE_CALENDARS: Record<string, SorborneCalendarSource> = 
+  process.env.NODE_ENV === 'production' ? CONFIRMED_MASTERS : ALL_SORBONNE_MASTERS;
 
 // Authentication credentials for Sorbonne calendars
 export const SORBONNE_AUTH = {
