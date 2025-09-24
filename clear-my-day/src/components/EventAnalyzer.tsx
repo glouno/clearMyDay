@@ -30,6 +30,13 @@ interface AnalysisData {
     rattrapage: number;
     other: number;
   };
+  fieldUsage?: { [field: string]: number };
+  timezoneAnalysis?: {
+    dstTransitionEvents: any[];
+    october2024EventCount: number;
+    october2024Events: any[];
+    timezoneUsage: { [timezone: string]: number };
+  };
 }
 
 interface FilterTestResult {
@@ -45,14 +52,23 @@ export default function EventAnalyzer() {
   const [filterTest, setFilterTest] = useState<FilterTestResult | null>(null);
   const [selectedGroups, setSelectedGroups] = useState({ td: '3', tme: '3' });
   const [loading, setLoading] = useState(false);
+  const [analyzeTimezones, setAnalyzeTimezones] = useState(false);
+  const [analyzeFields, setAnalyzeFields] = useState(false);
 
   const fetchAnalysis = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/analyze-events?sources=DAC&course=${selectedCourse}`);
+      const params = new URLSearchParams({
+        sources: 'DAC',
+        course: selectedCourse,
+        ...(analyzeTimezones && { timezones: 'true' })
+      });
+      
+      const response = await fetch(`/api/analyze-events?${params}`);
       const data = await response.json();
       if (data.success) {
         setAnalysisData(data.data);
+        console.log('Analysis Data:', data.data);
       }
     } catch (error) {
       console.error('Failed to fetch analysis:', error);
@@ -193,7 +209,16 @@ export default function EventAnalyzer() {
             </select>
           </div>
           
-          <div className="flex items-end">
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center text-sm">
+              <input
+                type="checkbox"
+                checked={analyzeTimezones}
+                onChange={(e) => setAnalyzeTimezones(e.target.checked)}
+                className="mr-2"
+              />
+              Analyze DST Issues
+            </label>
             <button
               onClick={testFiltering}
               className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
@@ -270,6 +295,99 @@ export default function EventAnalyzer() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Field Usage Analysis */}
+      {analysisData?.fieldUsage && (
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">ICS Field Usage Analysis</h3>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+            <div className="text-sm text-gray-700 mb-3">
+              <strong>Field Optimization Recommendations:</strong>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+              {Object.entries(analysisData.fieldUsage)
+                .sort((a, b) => b[1] - a[1])
+                .map(([field, count]) => {
+                  const isEssential = ['summary', 'start', 'end', 'uid', 'location', 'rrule', 'created', 'lastModified', 'dtstamp', 'status', 'recurrenceId', 'exdates', 'description'].includes(field);
+                  return (
+                    <div key={field} className={`flex justify-between p-2 rounded ${isEssential ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}`}>
+                      <span className="truncate">
+                        {isEssential ? '✅ Keep' : '❌ Remove'} {field}
+                      </span>
+                      <span className="font-medium ml-2">{count}</span>
+                    </div>
+                  );
+                })}
+            </div>
+            <div className="text-xs text-gray-600 mt-3">
+              ✅ Essential fields for Apple Calendar compatibility | ❌ Unnecessary fields that can be removed
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Timezone Analysis */}
+      {analysisData?.timezoneAnalysis && (
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">DST Transition Analysis (October 2024)</h3>
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-orange-600">
+                  {analysisData.timezoneAnalysis.october2024EventCount}
+                </div>
+                <div className="text-sm text-gray-600">October 2024 Events</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-orange-600">
+                  {analysisData.timezoneAnalysis.dstTransitionEvents.length}
+                </div>
+                <div className="text-sm text-gray-600">DST Transition Events</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-orange-600">
+                  {Object.keys(analysisData.timezoneAnalysis.timezoneUsage).length}
+                </div>
+                <div className="text-sm text-gray-600">Timezones Used</div>
+              </div>
+            </div>
+            
+            {analysisData.timezoneAnalysis.dstTransitionEvents.length > 0 && (
+              <div className="mt-4">
+                <h5 className="font-medium text-gray-800 mb-2">
+                  Events Around DST Change (Oct 20 - Nov 3, 2024):
+                </h5>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {analysisData.timezoneAnalysis.dstTransitionEvents.slice(0, 15).map((event, index) => (
+                    <div key={index} className="text-xs bg-white p-3 rounded border">
+                      <div className="font-medium text-gray-900">{event.summary}</div>
+                      <div className="text-gray-600 mt-1">
+                        📅 {new Date(event.date).toLocaleString()} | 
+                        🕐 {event.beforeDST ? 'Before DST (CEST)' : 'After DST (CET)'} | 
+                        🌍 {event.timezone}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
+                  <div className="text-sm font-medium text-blue-800">
+                    🔍 DST Analysis Results:
+                  </div>
+                  <div className="text-sm text-blue-700 mt-1">
+                    • Events before Oct 27 2AM should be in CEST (UTC+2)
+                    <br />
+                    • Events after Oct 27 2AM should be in CET (UTC+1)
+                    <br />
+                    • Apple Calendar should automatically handle this transition
+                    <br />
+                    • If events appear to "shift" by 1 hour, it indicates proper DST handling
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

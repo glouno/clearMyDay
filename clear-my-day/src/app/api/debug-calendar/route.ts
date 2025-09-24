@@ -56,11 +56,16 @@ export async function POST(request: NextRequest) {
             currentEvent.parsed = parsedEvent;
           } catch (error) {
             currentEvent.parseError = error instanceof Error ? error.message : 'Unknown error';
-            debugInfo.parseErrors.push({
-              eventIndex: eventCount - 1,
-              error: currentEvent.parseError,
-              rawLines: currentEvent.rawLines
-            });
+            debugInfo.eventBlocks.forEach((block: any, index: number) => {
+              console.log(`Event Block ${index}:`, {
+                parsed: block.parsed,
+                parseError: block.parseError,
+                rrule: block.parsed?.rrule,
+                timezone: block.parsed?.timezone,
+                allFields: Object.keys(block.parsed || {}),
+                rawLines: block.rawLines?.slice(0, 5) // First 5 lines only
+              });
+            });  
           }
           
           debugInfo.eventBlocks.push(currentEvent);
@@ -131,21 +136,6 @@ function parseEventBlock(lines: string[]): any {
       event.dtstamp = line.substring(8);
     } else if (line.startsWith('STATUS:')) {
       event.status = line.substring(7);
-    } else if (line.startsWith('TRANSP:')) {
-      event.transparency = line.substring(8);
-    } else if (line.startsWith('SEQUENCE:')) {
-      event.sequence = parseInt(line.substring(9));
-    } else if (line.startsWith('CATEGORIES:')) {
-      event.categories = line.substring(11).split(',');
-    } else if (line.startsWith('CLASS:')) {
-      event.classification = line.substring(6);
-    } else if (line.startsWith('PRIORITY:')) {
-      event.priority = parseInt(line.substring(9));
-    } else if (line.startsWith('ORGANIZER')) {
-      event.organizer = line.substring(line.indexOf(':') + 1);
-    } else if (line.startsWith('ATTENDEE')) {
-      if (!event.attendees) event.attendees = [];
-      event.attendees.push(line.substring(line.indexOf(':') + 1));
     } else if (line.startsWith('RECURRENCE-ID')) {
       const colonIndex = line.indexOf(':');
       if (colonIndex !== -1) {
