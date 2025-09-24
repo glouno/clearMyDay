@@ -7,95 +7,74 @@ export const ALL_SORBONNE_MASTERS: Record<string, SorborneCalendarSource> = {
   // ===== EXISTING MASTERS (confirmed working) =====
   DAC: {
     id: 'DAC',
-    name: 'M1 DAC (Data, Apprentissage, Connaissances)',
+    name: 'M1 MIND/DAC (Machine Learning, Artificial Intelligence and Data / Data, Apprentissage, Connaissances)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/DAC/M1_DAC',
-    courses: ['DALAS', 'LRC', 'MLBDA'],
+    courses: ['DALAS', 'LRC', 'MLBDA'], // From ListOfMasters.md
     defaultGroups: { td: '5', tme: 'B' }
   },
   IMA: {
     id: 'IMA',
     name: 'M1 IMA (Informatique Médicale et Applications)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/IMA/M1_IMA',
-    courses: ['MAPSI'],
+    courses: ['BIMA', 'MAPSI'], // From ListOfMasters.md
     defaultGroups: { td: '5' }
   },
   ANDROIDE: {
     id: 'ANDROIDE',
-    name: 'M1 ANDROIDE (Agents Distribués, Robotique, Recherche Opérationnelle, Interaction, Décision)',
+    name: 'M1 AI2D/ANDROIDE (Artificial Intelligence, Algorithms, Interactions and Decision-making / Agents Distribués, Robotique, Recherche Opérationnelle, Interaction, Décision)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/ANDROIDE/M1_ANDROIDE',
-    courses: ['MOGPL'],
+    courses: ['MOGPL', 'IREC'], // From ListOfMasters.md
     defaultGroups: {}
   },
 
   // ===== NEW MASTERS (to be tested) =====
-  AI2D: {
-    id: 'AI2D',
-    name: 'M1 AI2D (Artificial Intelligence, Algorithms, Interactions and Decision-making)',
-    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/AI2D/M1_AI2D',
-    courses: [], // To be discovered
-    defaultGroups: {}
-  },
   BIM: {
     id: 'BIM',
     name: 'M1 BIM (Bio-Informatics and Modeling)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/BIM/M1_BIM',
-    courses: [], // To be discovered
+    courses: ['SDED', 'AAGB'], // From ListOfMasters.md
     defaultGroups: {}
   },
-  CCA: {
-    id: 'CCA',
-    name: 'M1 CCA (Cryptology, High Performance Computing and Algorithmics)',
-    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/CCA/M1_CCA',
-    courses: [], // To be discovered
+  SFPN: {
+    id: 'SFPN',
+    name: 'M1 CCA/SFPN (Cryptology, High Performance Computing and Algorithmics)',
+    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/SFPN/M1_SFPN',
+    courses: ['MODEL', 'COMPLEX', 'PPAR'], // From ListOfMasters.md
     defaultGroups: {}
   },
-  MIND: {
-    id: 'MIND',
-    name: 'M1 MIND (Machine learning, artificial INtelligence and Data)',
-    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/MIND/M1_MIND',
-    courses: [], // To be discovered
-    defaultGroups: {}
-  },
-  QI: {
-    id: 'QI',
-    name: 'M1 QI (Quantum Information)',
-    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/QI/M1_QI',
-    courses: [], // To be discovered
+  IQ: {
+    id: 'IQ',
+    name: 'M1 IQ (Quantum Information)',
+    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/IQ/M1_IQ',
+    courses: ['BQPh', 'QCQC', 'QPh4CS'], // From ListOfMasters.md
     defaultGroups: {}
   },
   RES: {
     id: 'RES',
     name: 'M1 RES (Computer Networks: Internet, Cybersecurity, Cloud and Automation)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/RES/M1_RES',
-    courses: [], // To be discovered
+    courses: ['RTEL', 'ARES', 'PROGRES'], // From ListOfMasters.md
     defaultGroups: {}
   },
   SAR: {
     id: 'SAR',
     name: 'M1 SAR (Distributed Systems and Applications)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/SAR/M1_SAR',
-    courses: [], // To be discovered
+    courses: ['PSCR', 'NOYAU'], // From ListOfMasters.md
     defaultGroups: {}
   },
   SESI: {
     id: 'SESI',
     name: 'M1 SESI (Electronic Systems and Computer Systems)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/SESI/M1_SESI',
-    courses: [], // To be discovered
+    courses: ['VLSI1', 'SIGNAL', 'MOBJ', 'ARCHI1', 'ESA'], // From ListOfMasters.md
     defaultGroups: {}
   },
   STL: {
     id: 'STL',
     name: 'M1 STL (Software Science and Technology)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/STL/M1_STL',
-    courses: [], // To be discovered
-    defaultGroups: {}
-  },
-  DIGIT: {
-    id: 'DIGIT',
-    name: 'M1 DIGIT (International Program)',
-    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/DIGIT/M1_DIGIT',
-    courses: [], // To be discovered
+    courses: ['ALGAV', 'OUV', 'LS', 'DLP'], // From ListOfMasters.md
     defaultGroups: {}
   },
   HPC: {
@@ -109,16 +88,16 @@ export const ALL_SORBONNE_MASTERS: Record<string, SorborneCalendarSource> = {
   // ===== M2 MASTERS (accessible ones) =====
   DAC_M2: {
     id: 'DAC_M2',
-    name: 'M2 DAC (Data, Apprentissage, Connaissances)',
+    name: 'M2 MIND/DAC (Machine Learning, Artificial Intelligence and Data / Data, Apprentissage, Connaissances)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/DAC/M2_DAC',
-    courses: [], // To be discovered
+    courses: ['LSDA', 'GDC', 'ADL', 'RL', 'XAI', 'MEDS', 'SACE', 'LMM', 'DEEP', 'BDLE', 'RLD', 'AMAL', 'REDS'], // From ListOfMasters.md
     defaultGroups: {}
   },
   IMA_M2: {
     id: 'IMA_M2',
     name: 'M2 IMA (Informatique Médicale et Applications)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/IMA/M2_IMA',
-    courses: [], // To be discovered
+    courses: ['VISION', 'MAPIMED', 'PRAT', 'TADI', 'RDFIA', 'BIOMED', 'IG3DA'], // From ListOfMasters.md
     defaultGroups: {}
   },
   ANDROIDE_M2: {
