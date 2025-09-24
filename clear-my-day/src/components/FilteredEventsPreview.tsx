@@ -45,8 +45,9 @@ export default function FilteredEventsPreview({ courseGroups, selectedCourses, s
 
       const data = await response.json();
       if (data.success) {
-        // Fetch the filtered calendar
-        const calendarResponse = await fetch(data.data.subscriptionUrl);
+        // Fetch the filtered calendar using relative URL to avoid CORS issues
+        const token = data.data.token;
+        const calendarResponse = await fetch(`/api/calendar/${token}`);
         const icsContent = await calendarResponse.text();
         
         // Parse the ICS content to extract event summaries

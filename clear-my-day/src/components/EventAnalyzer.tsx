@@ -105,8 +105,9 @@ export default function EventAnalyzer() {
 
       const generateData = await generateResponse.json();
       if (generateData.success) {
-        // Fetch the filtered calendar
-        const calendarResponse = await fetch(generateData.data.subscriptionUrl);
+        // Fetch the filtered calendar using relative URL to avoid CORS issues
+        const token = generateData.data.token;
+        const calendarResponse = await fetch(`/api/calendar/${token}`);
         const icsContent = await calendarResponse.text();
         
         // Parse the ICS content to count events

@@ -90,12 +90,27 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       headers: {
         'Content-Type': 'text/calendar; charset=utf-8',
         'Content-Disposition': `attachment; filename="${config.name.replace(/[^a-zA-Z0-9]/g, '_')}.ics"`,
-        'Cache-Control': 'private, max-age=300', // Cache for 5 minutes
-      },
+        'Cache-Control': 'public, max-age=300', // Cache for 5 minutes
+        'ETag': `"${token}-${config.createdAt.getTime()}"`,
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      }
     });
 
   } catch (error) {
     console.error('Error generating calendar:', error);
     return new NextResponse('Failed to generate calendar', { status: 500 });
   }
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  });
 }
