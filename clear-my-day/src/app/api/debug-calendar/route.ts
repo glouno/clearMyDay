@@ -104,20 +104,25 @@ function parseEventBlock(lines: string[]): any {
       const colonIndex = line.indexOf(':');
       if (colonIndex !== -1) {
         const dateStr = line.substring(colonIndex + 1);
-        event.start = parseICSDate(dateStr);
-        event.rawStart = dateStr;
         // Extract timezone info if present
+        let timezone: string | undefined;
         if (line.includes('TZID=')) {
           const tzMatch = line.match(/TZID=([^:]+)/);
-          if (tzMatch) event.timezone = tzMatch[1];
+          if (tzMatch) {
+            timezone = tzMatch[1];
+            event.timezone = timezone;
+          }
         }
+        event.start = parseICSDate(dateStr, timezone);
+        event.rawStart = dateStr;
       }
     } else if (line.startsWith('DTEND')) {
       // Handle both DTEND: and DTEND;TZID=Europe/Paris: formats
       const colonIndex = line.indexOf(':');
       if (colonIndex !== -1) {
         const dateStr = line.substring(colonIndex + 1);
-        event.end = parseICSDate(dateStr);
+        // Use the same timezone as DTSTART
+        event.end = parseICSDate(dateStr, event.timezone);
         event.rawEnd = dateStr;
       }
     } else if (line.startsWith('UID:')) {
@@ -139,13 +144,25 @@ function parseEventBlock(lines: string[]): any {
     } else if (line.startsWith('RECURRENCE-ID')) {
       const colonIndex = line.indexOf(':');
       if (colonIndex !== -1) {
-        event.recurrenceId = parseICSDate(line.substring(colonIndex + 1));
+        // Extract timezone from RECURRENCE-ID if present
+        let timezone: string | undefined;
+        if (line.includes('TZID=')) {
+          const tzMatch = line.match(/TZID=([^:]+)/);
+          if (tzMatch) timezone = tzMatch[1];
+        }
+        event.recurrenceId = parseICSDate(line.substring(colonIndex + 1), timezone);
       }
     } else if (line.startsWith('EXDATE')) {
       if (!event.exdates) event.exdates = [];
       const colonIndex = line.indexOf(':');
       if (colonIndex !== -1) {
-        event.exdates.push(parseICSDate(line.substring(colonIndex + 1)));
+        // Extract timezone from EXDATE if present
+        let timezone: string | undefined;
+        if (line.includes('TZID=')) {
+          const tzMatch = line.match(/TZID=([^:]+)/);
+          if (tzMatch) timezone = tzMatch[1];
+        }
+        event.exdates.push(parseICSDate(line.substring(colonIndex + 1), timezone));
       }
     }
   }
@@ -157,7 +174,7 @@ function parseEventBlock(lines: string[]): any {
   return event;
 }
 
-function parseICSDate(dateStr: string): Date {
+function parseICSDate(dateStr: string, timezone?: string): Date {
   // Handle different ICS date formats
   if (dateStr.includes('T')) {
     // DateTime format: 20240101T080000Z or 20240101T080000
@@ -169,7 +186,26 @@ function parseICSDate(dateStr: string): Date {
     const minute = cleanStr.substring(10, 12) || '00';
     const second = cleanStr.substring(12, 14) || '00';
     
-    const date = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}${dateStr.endsWith('Z') ? 'Z' : ''}`);
+    let date: Date;
+    
+    if (dateStr.endsWith('Z')) {
+      // UTC time
+      date = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}Z`);
+    } else if (timezone === 'Europe/Paris') {
+      // Europe/Paris timezone - create date and adjust for timezone
+      const isoString = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+      // Create a date assuming it's in Europe/Paris timezone
+      // We need to convert from Europe/Paris to UTC for proper handling
+      const tempDate = new Date(isoString);
+      const utcTime = tempDate.getTime() + (tempDate.getTimezoneOffset() * 60000);
+      // Adjust for Europe/Paris offset (CET/CEST)
+      const parisOffset = getParisTzOffset(tempDate);
+      date = new Date(utcTime + (parisOffset * 60000));
+    } else {
+      // Local time (no timezone specified)
+      date = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`);
+    }
+    
     if (isNaN(date.getTime())) {
       throw new Error(`Invalid date: ${dateStr}`);
     }
@@ -185,4 +221,20 @@ function parseICSDate(dateStr: string): Date {
     }
     return date;
   }
+}
+
+// Helper function to get Paris timezone offset in minutes
+function getParisTzOffset(date: Date): number {
+  // Europe/Paris is UTC+1 (CET) in winter, UTC+2 (CEST) in summer
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
+  
+  // Rough DST calculation for Europe/Paris
+  // DST starts last Sunday in March, ends last Sunday in October
+  const isDST = (month > 2 && month < 9) || 
+                (month === 2 && day >= 25) || 
+                (month === 9 && day < 25);
+  
+  return isDST ? -120 : -60; // Negative because we're converting TO UTC
 }
