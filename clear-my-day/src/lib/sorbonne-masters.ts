@@ -102,51 +102,60 @@ export const ALL_SORBONNE_MASTERS: Record<string, SorborneCalendarSource> = {
   },
   ANDROIDE_M2: {
     id: 'ANDROIDE_M2',
-    name: 'M2 ANDROIDE (Agents Distribués, Robotique, Recherche Opérationnelle, Interaction, Décision)',
+    name: 'M2 AI2D/ANDROIDE (Artificial Intelligence, Algorithms, Interactions and Decision-making / Agents Distribués, Robotique, Recherche Opérationnelle, Interaction, Décision)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/ANDROIDE/M2_ANDROIDE',
-    courses: [], // To be discovered
+    courses: ['MOSIMA', 'COCOMA', 'MADMC', 'MAOA', 'AI', 'AOTJ', 'MADI', 'HAII', 'IAR'], // From ListOfMasters.md
     defaultGroups: {}
   },
   BIM_M2: {
     id: 'BIM_M2',
     name: 'M2 BIM (Bio-Informatics and Modeling)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/BIM/M2_BIM',
-    courses: [], // To be discovered
+    courses: ['GPOP', 'GROP', 'STRUCT', 'PHYG', 'RESYS', 'SPLEX', 'GENOM'], // From ListOfMasters.md
     defaultGroups: {}
   },
   RES_M2: {
     id: 'RES_M2',
     name: 'M2 RES (Computer Networks: Internet, Cybersecurity, Cloud and Automation)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/RES/M2_RES',
-    courses: [], // To be discovered
+    courses: ['GAN', 'SECRES', 'ITQoS', 'ITQOS', 'MADRE', 'MEPS', 'NEVA', 'NOVA', 'IOB', 'ANET', 'CELL'], // From ListOfMasters.md
     defaultGroups: {}
   },
   SAR_M2: {
     id: 'SAR_M2',
     name: 'M2 SAR (Distributed Systems and Applications)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/SAR/M2_SAR',
-    courses: [], // To be discovered
+    courses: ['ARA', 'NMV', 'ASTRE', 'DATACLOUD'], // From ListOfMasters.md
     defaultGroups: {}
   },
   SESI_M2: {
     id: 'SESI_M2',
     name: 'M2 SESI (Electronic Systems and Computer Systems)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/SESI/M2_SESI',
-    courses: [], // To be discovered
+    courses: ['MASSOC', 'PBD', 'PROG', 'DSP', 'SMC', 'HOTOP', 'MOCCA', 'COCCA', 'PACC', 'IMSE'], // From ListOfMasters.md
     defaultGroups: {}
   },
   STL_M2: {
     id: 'STL_M2',
     name: 'M2 STL (Software Science and Technology)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/STL/M2_STL',
-    courses: [], // To be discovered
+    courses: ['TAS', 'GRAPA', 'DAAR', 'TPEA', 'SVP', 'ALASCA', 'GPSTL', 'AAGA', 'PISTL', 'PPC'], // From ListOfMasters.md
     defaultGroups: {}
   },
-  HPC_M2: {
-    id: 'HPC_M2',
-    name: 'M2 HPC (High Performance Computing)',
-    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/HPC/M2_HPC',
-    courses: [], // To be discovered
+  
+  // Add missing M2 masters from ListOfMasters.md
+  SFPN_M2: {
+    id: 'SFPN_M2',
+    name: 'M2 CCA/SFPN (Cryptology, High Performance Computing and Algorithmics)',
+    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/SFPN/M2_SFPN',
+    courses: ['HPCA', 'CRYPTA', 'SCA', 'POSSO', 'AFAE'], // From ListOfMasters.md
+    defaultGroups: {}
+  },
+  IQ_M2: {
+    id: 'IQ_M2',
+    name: 'M2 IQ (Quantum Information)',
+    url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/IQ/M2_IQ',
+    courses: ['PhQC', 'QIT', 'AQCrypt', 'QCrypt', 'QAlg', 'AQAlg'], // From ListOfMasters.md
     defaultGroups: {}
   }
 };
@@ -301,4 +310,53 @@ export async function discoverAllCourses(): Promise<{ [masterId: string]: string
   }
 
   return results;
+}
+
+// Helper functions for M1/M2 filtering
+export function getM1Masters(): Record<string, SorborneCalendarSource> {
+  const m1Masters: Record<string, SorborneCalendarSource> = {};
+  
+  for (const [key, master] of Object.entries(ALL_SORBONNE_MASTERS)) {
+    if (!key.endsWith('_M2')) {
+      m1Masters[key] = master;
+    }
+  }
+  
+  return m1Masters;
+}
+
+export function getM2Masters(): Record<string, SorborneCalendarSource> {
+  const m2Masters: Record<string, SorborneCalendarSource> = {};
+  
+  for (const [key, master] of Object.entries(ALL_SORBONNE_MASTERS)) {
+    if (key.endsWith('_M2')) {
+      m2Masters[key] = master;
+    }
+  }
+  
+  return m2Masters;
+}
+
+export function getConfirmedM1Masters(): Record<string, SorborneCalendarSource> {
+  const m1Masters: Record<string, SorborneCalendarSource> = {};
+  
+  for (const [key, master] of Object.entries(CONFIRMED_MASTERS)) {
+    if (!key.endsWith('_M2')) {
+      m1Masters[key] = master;
+    }
+  }
+  
+  return m1Masters;
+}
+
+export function getConfirmedM2Masters(): Record<string, SorborneCalendarSource> {
+  const m2Masters: Record<string, SorborneCalendarSource> = {};
+  
+  for (const [key, master] of Object.entries(CONFIRMED_MASTERS)) {
+    if (key.endsWith('_M2')) {
+      m2Masters[key] = master;
+    }
+  }
+  
+  return m2Masters;
 }

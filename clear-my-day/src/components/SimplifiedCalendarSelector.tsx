@@ -3,7 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { FilterConfig } from '@/lib/types';
 import { SORBONNE_CALENDARS } from '@/lib/constants';
+import { getConfirmedM1Masters, getConfirmedM2Masters } from '@/lib/sorbonne-masters';
 import FilteredEventsPreview from './FilteredEventsPreview';
+import MasterLevelSelector, { MasterLevel } from './MasterLevelSelector';
 
 interface SimplifiedCalendarSelectorProps {
   onFilterChange: (filter: FilterConfig) => void;
@@ -12,7 +14,8 @@ interface SimplifiedCalendarSelectorProps {
 }
 
 export default function SimplifiedCalendarSelector({ onFilterChange, onPreview, loading = false }: SimplifiedCalendarSelectorProps) {
-  const [selectedMasters, setSelectedMasters] = useState<('DAC' | 'IMA' | 'ANDROIDE')[]>(['DAC']);
+  const [masterLevel, setMasterLevel] = useState<MasterLevel>('M1');
+  const [selectedMasters, setSelectedMasters] = useState<string[]>(['DAC']);
   const [selectedCourses, setSelectedCourses] = useState<string[]>(['MLBDA']);
   const [courseGroups, setCourseGroups] = useState<{[courseId: string]: string}>({});
   const [calendarName, setCalendarName] = useState<string>('My Sorbonne Calendar');
@@ -20,10 +23,25 @@ export default function SimplifiedCalendarSelector({ onFilterChange, onPreview, 
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
+  // Get available masters based on selected level
+  const availableMasters = masterLevel === 'M1' ? getConfirmedM1Masters() : getConfirmedM2Masters();
+  
   // Get available courses based on selected masters
-  const availableCourses = selectedMasters.flatMap(master => 
-    SORBONNE_CALENDARS[master].courses
-  );
+  const availableCourses = selectedMasters.flatMap(masterId => {
+    const master = availableMasters[masterId];
+    return master ? master.courses : [];
+  });
+
+  // Reset selections when master level changes
+  useEffect(() => {
+    const firstMaster = Object.keys(availableMasters)[0];
+    if (firstMaster) {
+      setSelectedMasters([firstMaster]);
+      const firstMasterCourses = availableMasters[firstMaster].courses;
+      setSelectedCourses(firstMasterCourses.length > 0 ? [firstMasterCourses[0]] : []);
+      setCourseGroups({});
+    }
+  }, [masterLevel]);
 
   // Update filter when selections change
   useEffect(() => {
@@ -100,17 +118,23 @@ export default function SimplifiedCalendarSelector({ onFilterChange, onPreview, 
     });
   };
 
-  const handleMasterChange = (master: 'DAC' | 'IMA' | 'ANDROIDE', checked: boolean) => {
+  const handleMasterChange = (masterId: string, checked: boolean) => {
     if (checked) {
-      setSelectedMasters(prev => [...prev, master]);
+      setSelectedMasters(prev => [...prev, masterId]);
       // Auto-select default courses for this master
-      const defaultCourses = SORBONNE_CALENDARS[master].courses;
-      setSelectedCourses(prev => [...new Set([...prev, ...defaultCourses])]);
+      const master = availableMasters[masterId];
+      if (master) {
+        const defaultCourses = master.courses;
+        setSelectedCourses(prev => [...new Set([...prev, ...defaultCourses])]);
+      }
     } else {
-      setSelectedMasters(prev => prev.filter(m => m !== master));
+      setSelectedMasters(prev => prev.filter(m => m !== masterId));
       // Remove courses from this master
-      const coursesToRemove = SORBONNE_CALENDARS[master].courses;
-      setSelectedCourses(prev => prev.filter(course => !coursesToRemove.includes(course)));
+      const master = availableMasters[masterId];
+      if (master) {
+        const coursesToRemove = master.courses;
+        setSelectedCourses(prev => prev.filter(course => !coursesToRemove.includes(course)));
+      }
     }
   };
 
@@ -180,21 +204,30 @@ export default function SimplifiedCalendarSelector({ onFilterChange, onPreview, 
           />
         </div>
 
-        {/* Master Selection */}
+        {/* Master Level Selection */}
+        <MasterLevelSelector
+          selectedLevel={masterLevel}
+          onLevelChange={setMasterLevel}
+          className="mb-6"
+        />
+
+        {/* Master Programs Selection */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Master Programs
+            Master Programs ({masterLevel})
           </label>
           <div className="flex flex-wrap gap-4">
-            {Object.keys(SORBONNE_CALENDARS).map(master => (
-              <label key={master} className="flex items-center">
+            {Object.entries(availableMasters).map(([masterId, master]) => (
+              <label key={masterId} className="flex items-center">
                 <input
                   type="checkbox"
-                  checked={selectedMasters.includes(master as any)}
-                  onChange={(e) => handleMasterChange(master as any, e.target.checked)}
+                  checked={selectedMasters.includes(masterId)}
+                  onChange={(e) => handleMasterChange(masterId, e.target.checked)}
                   className="mr-2"
                 />
-                <span className="text-sm text-gray-700">{master}</span>
+                <span className="text-sm text-gray-700 max-w-xs truncate" title={master.name}>
+                  {master.name}
+                </span>
               </label>
             ))}
           </div>
