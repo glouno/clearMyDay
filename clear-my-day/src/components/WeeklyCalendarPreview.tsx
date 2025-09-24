@@ -40,7 +40,8 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentView, setCurrentView] = useState('week');
-  const [currentDate, setCurrentDate] = useState(new Date());
+  // Start with a date that's more likely to have events (November 2024)
+  const [currentDate, setCurrentDate] = useState(new Date(2024, 10, 20)); // November 20, 2024
 
   const fetchEvents = async () => {
     if (selectedCourses.length === 0 || selectedMasters.length === 0) return;
@@ -109,8 +110,8 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
         console.log('Recurring Events:', recurringEvents);
 
         // Expand recurring events using a wider range to capture all academic events
-        // The RRULE UNTIL dates will automatically limit the expansion
-        const academicYearStart = new Date(2024, 8, 1); // September 1, 2024
+        // Include past events so users can see the full academic calendar
+        const academicYearStart = new Date(2023, 8, 1); // September 1, 2023 (include past academic year)
         const academicYearEnd = new Date(2026, 6, 31); // July 31, 2026
         
         const expandedEvents = expandRecurringEvents(recurringEvents, {
