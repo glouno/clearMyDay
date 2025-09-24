@@ -73,8 +73,8 @@ export class ICSGenerator {
     
     lines.push('BEGIN:VEVENT');
     lines.push(`UID:${event.uid}`);
-    lines.push(`DTSTART;TZID=Europe/Paris:${this.formatDateTime(event.start)}`);
-    lines.push(`DTEND;TZID=Europe/Paris:${this.formatDateTime(event.end)}`);
+    lines.push(`DTSTART;TZID=Europe/Paris:${this.formatDateTime(new Date(event.start))}`);
+    lines.push(`DTEND;TZID=Europe/Paris:${this.formatDateTime(new Date(event.end))}`);
     lines.push(`SUMMARY:${this.escapeText(event.summary)}`);
     
     if (event.description) {
@@ -97,7 +97,9 @@ export class ICSGenerator {
     
     // Add recurrence rule if present
     if (event.rrule) {
-      lines.push(`RRULE:${event.rrule}`);
+      // Fix RRULE timezone issues for Apple Calendar compatibility
+      const fixedRrule = this.fixRruleTimezone(event.rrule);
+      lines.push(`RRULE:${fixedRrule}`);
     }
     
     // Add recurrence ID if present
@@ -122,6 +124,32 @@ export class ICSGenerator {
     const seconds = String(date.getSeconds()).padStart(2, '0');
     
     return `${year}${month}${day}T${hours}${minutes}${seconds}`;
+  }
+
+  /**
+   * Fix RRULE timezone issues for better Apple Calendar compatibility
+   */
+  private fixRruleTimezone(rrule: string): string {
+    let fixedRrule = rrule;
+    
+    // Remove any DTSTART from RRULE (it shouldn't be there)
+    fixedRrule = fixedRrule.replace(/;DTSTART=[^;]*/g, '');
+    
+    // Convert UTC UNTIL dates to local timezone format for better compatibility
+    // Example: FREQ=WEEKLY;UNTIL=20250408T215959Z -> FREQ=WEEKLY;UNTIL=20250408T235959
+    fixedRrule = fixedRrule.replace(/UNTIL=(\d{8})T(\d{6})Z/g, (match, date, time) => {
+      // Parse the UTC date
+      const utcDate = new Date(`${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)}T${time.slice(0,2)}:${time.slice(2,4)}:${time.slice(4,6)}Z`);
+      
+      // Convert to Europe/Paris timezone (properly handle DST)
+      const parisDate = new Date(utcDate.toLocaleString("en-US", {timeZone: "Europe/Paris"}));
+      
+      // Format back to RRULE format (without Z for local time)
+      const localDateStr = this.formatDateTime(parisDate);
+      return `UNTIL=${localDateStr}`;
+    });
+    
+    return fixedRrule;
   }
 
   /**

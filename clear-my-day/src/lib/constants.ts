@@ -29,7 +29,10 @@ export const APP_CONFIG = {
   MIN_CACHE_SIZE: 100,             // Minimum events to cache
   MAX_CACHE_SIZE: 10000,           // Maximum events to cache
   DEFAULT_TIMEZONE: 'Europe/Paris',
+  TIMEZONE: 'Europe/Paris',
   ICS_VERSION: '2.0',
+  CALENDAR_PRODUCT_ID: '-//ClearMyDay//ClearMyDay Calendar Filter//EN',
+  REFRESH_INTERVAL_MINUTES: 15,
   TOKEN_LENGTH: 32,
   TOKEN_EXPIRY_DAYS: 365
 };
