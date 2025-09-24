@@ -91,12 +91,13 @@ export default function EventAnalyzer() {
           filter: {
             masters: ['DAC'],
             courses: [selectedCourse],
+            groups: { td: '', tme: '' }, // Required by FilterConfig interface
             courseGroups: {
               [selectedCourse]: selectedGroups
             },
             dateRange: {
-              start: '2024-01-01',
-              end: '2025-12-31'
+              start: new Date('2024-01-01'),
+              end: new Date('2025-12-31')
             }
           }
         })

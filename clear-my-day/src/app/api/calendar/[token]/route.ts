@@ -29,8 +29,8 @@ function checkRateLimit(clientId: string): boolean {
   return true;
 }
 
-export async function GET(request: NextRequest, { params }: { params: { token: string } }) {
-  const { token } = params;
+export async function GET(request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
   const clientIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
 
   // Check rate limits
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
       id: `cal_${token}`,
       name: config.name,
       token: token,
-      filter: config.filter,
+      filter: filterWithGroups,
       createdAt: config.createdAt,
       lastUpdated: new Date()
     });
