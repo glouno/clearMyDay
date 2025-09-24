@@ -181,10 +181,24 @@ class CalDAVClient {
         if (!sorborneSource) throw new Error(`Unknown source: ${sourceId}`);
         
         // Convert SorborneCalendarSource to CalendarSource
+        // Handle URLs with embedded auth (https://user:pass@domain.com/path)
+        let cleanUrl = sorborneSource.url;
+        let auth = SORBONNE_AUTH;
+        
+        if (sorborneSource.url.includes('@')) {
+          // Extract embedded auth from URL
+          const urlParts = sorborneSource.url.match(/https?:\/\/([^:]+):([^@]+)@(.+)/);
+          if (urlParts) {
+            const [, username, password, restOfUrl] = urlParts;
+            cleanUrl = `https://${restOfUrl}`;
+            auth = { username, password };
+          }
+        }
+        
         const source: CalendarSource = {
           name: sorborneSource.name,
-          url: sorborneSource.url,
-          auth: SORBONNE_AUTH
+          url: cleanUrl,
+          auth: auth
         };
         
         const icsData = await this.fetchCalendar(source);
@@ -227,10 +241,24 @@ class CalDAVClient {
         if (!sorborneSource) throw new Error(`Unknown source: ${sourceId}`);
         
         // Convert SorborneCalendarSource to CalendarSource
+        // Handle URLs with embedded auth (https://user:pass@domain.com/path)
+        let cleanUrl = sorborneSource.url;
+        let auth = SORBONNE_AUTH;
+        
+        if (sorborneSource.url.includes('@')) {
+          // Extract embedded auth from URL
+          const urlParts = sorborneSource.url.match(/https?:\/\/([^:]+):([^@]+)@(.+)/);
+          if (urlParts) {
+            const [, username, password, restOfUrl] = urlParts;
+            cleanUrl = `https://${restOfUrl}`;
+            auth = { username, password };
+          }
+        }
+        
         const source: CalendarSource = {
           name: sorborneSource.name,
-          url: sorborneSource.url,
-          auth: SORBONNE_AUTH
+          url: cleanUrl,
+          auth: auth
         };
         
         await this.fetchCalendar(source);
