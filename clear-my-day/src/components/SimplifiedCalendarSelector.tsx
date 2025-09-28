@@ -325,7 +325,7 @@ export default function SimplifiedCalendarSelector({ onFilterChange, onPreview, 
           <FilteredEventsPreview
             courseGroups={courseGroups}
             selectedCourses={selectedCourses}
-            selectedMasters={selectedMasters}
+            selectedMasters={selectedMasters as ('DAC' | 'IMA' | 'ANDROIDE')[]}
           />
         </div>
       )}

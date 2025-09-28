@@ -4,6 +4,7 @@ import { CalendarFetchResult, CalendarEvent, CalendarSource } from './types';
 import { SORBONNE_CALENDARS, SORBONNE_AUTH, APP_CONFIG, HTTP_HEADERS, ERROR_MESSAGES } from './constants';
 
 // Using node-ical for ICS parsing instead of xml2js
+import * as ical from 'ical';
 
 interface FetchOptions {
   timeout?: number;
