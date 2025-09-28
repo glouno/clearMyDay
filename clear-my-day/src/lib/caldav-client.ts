@@ -4,7 +4,7 @@ import { CalendarFetchResult, CalendarEvent, CalendarSource } from './types';
 import { SORBONNE_CALENDARS, SORBONNE_AUTH, APP_CONFIG, HTTP_HEADERS, ERROR_MESSAGES } from './constants';
 
 // Using node-ical for ICS parsing instead of xml2js
-import * as ical from 'ical';
+import * as ical from 'node-ical';
 
 interface FetchOptions {
   timeout?: number;
@@ -153,7 +153,7 @@ class CalDAVClient {
             start: new Date(event.start),
             end: new Date(event.end),
             location: event.location || undefined,
-            categories: event.categories ? [event.categories].flat() : undefined,
+            categories: undefined, // Categories not reliably available in node-ical
             rrule: event.rrule ? event.rrule.toString() : undefined,
             recurrenceId: event.recurrenceid ? new Date(event.recurrenceid) : undefined
           };
