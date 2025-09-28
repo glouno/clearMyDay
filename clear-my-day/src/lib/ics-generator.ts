@@ -113,15 +113,27 @@ export class ICSGenerator {
   }
 
   /**
-   * Format date/time for ICS format (YYYYMMDDTHHMMSS)
+   * Format date/time for ICS format in Europe/Paris timezone (YYYYMMDDTHHMMSS)
    */
   private formatDateTime(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
+    // Convert to Paris timezone using Intl.DateTimeFormat
+    const parisTime = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Paris',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).formatToParts(date);
+
+    const year = parisTime.find(part => part.type === 'year')?.value || '';
+    const month = parisTime.find(part => part.type === 'month')?.value || '';
+    const day = parisTime.find(part => part.type === 'day')?.value || '';
+    const hours = parisTime.find(part => part.type === 'hour')?.value || '';
+    const minutes = parisTime.find(part => part.type === 'minute')?.value || '';
+    const seconds = parisTime.find(part => part.type === 'second')?.value || '';
     
     return `${year}${month}${day}T${hours}${minutes}${seconds}`;
   }
