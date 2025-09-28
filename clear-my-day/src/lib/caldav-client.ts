@@ -6,11 +6,11 @@ import { SORBONNE_CALENDARS, SORBONNE_AUTH, APP_CONFIG, HTTP_HEADERS, ERROR_MESS
 // Using node-ical for ICS parsing instead of xml2js
 import * as ical from 'node-ical';
 
-interface FetchOptions {
-  timeout?: number;
-  retries?: number;
-  retryDelay?: number;
-}
+// interface FetchOptions { // Unused interface
+//   timeout?: number;
+//   retries?: number;
+//   retryDelay?: number;
+// }
 
 class CalDAVClient {
   private cache = new Map<string, { data: string; timestamp: number }>();

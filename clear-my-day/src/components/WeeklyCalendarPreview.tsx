@@ -209,44 +209,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
     }
   };
 
-  const parseICSToCalendarEvents = (icsContent: string): CalendarEvent[] => {
-    const events: CalendarEvent[] = [];
-    const lines = icsContent.split(/\r\n|\n/);
-
-    let currentEvent: Partial<CalendarEvent> = {};
-    let inEvent = false;
-
-    for (const line of lines) {
-      if (line.startsWith('BEGIN:VEVENT')) {
-        inEvent = true;
-        currentEvent = {};
-      } else if (line.startsWith('END:VEVENT')) {
-        if (currentEvent.title && currentEvent.start && currentEvent.end) {
-          events.push(currentEvent as CalendarEvent);
-        }
-        inEvent = false;
-      } else if (inEvent) {
-        if (line.startsWith('SUMMARY:')) {
-          currentEvent.title = line.substring(8);
-        } else if (line.startsWith('DTSTART:')) {
-          currentEvent.start = parseICSDate(line.substring(8));
-        } else if (line.startsWith('DTEND:')) {
-          currentEvent.end = parseICSDate(line.substring(8));
-        } else if (line.startsWith('UID:')) {
-          currentEvent.id = line.substring(4);
-        }
-      }
-    }
-
-    // Add resource info for styling
-    return events.map(event => ({
-      ...event,
-      resource: {
-        type: getEventType(event.title),
-        group: getEventGroup(event.title)
-      }
-    }));
-  };
+  // Removed unused parseICSToCalendarEvents function
 
   const parseICSDate = (dateStr: string): Date => {
     // Clean the date string

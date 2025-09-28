@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { FilterConfig } from '@/lib/types';
-import { SORBONNE_CALENDARS } from '@/lib/constants';
+// import { SORBONNE_CALENDARS } from '@/lib/constants'; // Not needed in simplified version
 import { getConfirmedM1Masters, getConfirmedM2Masters } from '@/lib/sorbonne-masters';
 import FilteredEventsPreview from './FilteredEventsPreview';
 import MasterLevelSelector, { MasterLevel } from './MasterLevelSelector';
@@ -13,7 +13,7 @@ interface SimplifiedCalendarSelectorProps {
   loading?: boolean;
 }
 
-export default function SimplifiedCalendarSelector({ onFilterChange, onPreview, loading = false }: SimplifiedCalendarSelectorProps) {
+export default function SimplifiedCalendarSelector({ onFilterChange, loading = false }: SimplifiedCalendarSelectorProps) {
   const [masterLevel, setMasterLevel] = useState<MasterLevel>('M1');
   const [selectedMasters, setSelectedMasters] = useState<string[]>(['DAC']);
   const [selectedCourses, setSelectedCourses] = useState<string[]>(['MLBDA']);
