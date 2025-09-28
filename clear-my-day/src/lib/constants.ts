@@ -24,8 +24,8 @@ export const APP_CONFIG = {
   RATE_LIMIT_REQUESTS_PER_MINUTE: 60,
   RATE_LIMIT_REQUESTS_PER_TOKEN: 10,
   MAX_RESPONSE_TIME_MS: 5000,
-  MAX_RETRIES: process.env.NODE_ENV === 'production' ? 2 : 3,  // Allow more retries for production
-  TIMEOUT: process.env.NODE_ENV === 'production' ? 15000 : 10000,   // 15s for production, 10s for dev
+  MAX_RETRIES: process.env.NODE_ENV === 'production' ? 1 : 2,  // Conservative for production
+  TIMEOUT: process.env.NODE_ENV === 'production' ? 12000 : 10000,   // 12s for production, 10s for dev
   MIN_CACHE_SIZE: 100,             // Minimum events to cache
   MAX_CACHE_SIZE: 10000,           // Maximum events to cache
   DEFAULT_TIMEZONE: 'Europe/Paris',

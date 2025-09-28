@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { caldavClient } from '@/lib/caldav-client';
 import { SORBONNE_CALENDARS } from '@/lib/constants';
 import { CalendarEvent, CalendarFetchResult } from '@/lib/types';
+import { supabase, getCacheKey, isCacheValid, CACHE_TTL_HOURS, AnalyzeEventsCache } from '@/lib/supabase';
 
 interface EventAnalysis {
   summary: string;
@@ -78,10 +79,6 @@ export async function GET(request: NextRequest) {
     const sources = searchParams.get('sources')?.split(',') || ['DAC'];
     const courseFilter = searchParams.get('course'); // Optional course filter
 
-    // Fetch events from specified sources
-    const allEvents: CalendarEvent[] = [];
-    const results: { [source: string]: { success: boolean; error?: string; eventCount: number } } = {};
-
     const validSources = sources.filter(source => 
       Object.keys(SORBONNE_CALENDARS).includes(source)
     );
@@ -94,13 +91,45 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Check cache first (if Supabase is available)
+    if (supabase) {
+      try {
+        const cacheKey = getCacheKey(validSources);
+        const { data: cachedData, error } = await supabase
+          .from('analyze_events_cache')
+          .select('*')
+          .eq('id', cacheKey)
+          .single();
+
+        if (!error && cachedData && isCacheValid(cachedData)) {
+          console.log(`✅ Cache hit for sources: ${validSources.join(', ')}`);
+          return NextResponse.json({
+            success: true,
+            data: cachedData.data,
+            cached: true,
+            timestamp: new Date().toISOString()
+          });
+        } else if (cachedData) {
+          console.log(`🗑️ Cache expired for sources: ${validSources.join(', ')}`);
+        } else {
+          console.log(`❌ Cache miss for sources: ${validSources.join(', ')}`);
+        }
+      } catch (cacheError) {
+        console.warn('Cache check failed:', cacheError);
+      }
+    }
+
+    // Fetch events from specified sources
+    const allEvents: CalendarEvent[] = [];
+    const results: { [source: string]: { success: boolean; error?: string; eventCount: number } } = {};
+
     // Fetch from all sources with timeout protection
     console.log(`Fetching events from sources: ${validSources.join(', ')}`);
     
     try {
-      // Add overall timeout for the entire operation (45 seconds max for production)
+      // Add overall timeout for the entire operation (30 seconds max for production)
       const fetchPromise = caldavClient.fetchAllCalendars(validSources);
-      const overallTimeout = process.env.NODE_ENV === 'production' ? 45000 : 25000;
+      const overallTimeout = process.env.NODE_ENV === 'production' ? 30000 : 20000;
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Overall fetch timeout')), overallTimeout)
       );
@@ -212,30 +241,55 @@ export async function GET(request: NextRequest) {
     // Determine if we have any successful results
     const hasSuccessfulResults = Object.values(results).some(r => r.success);
 
+    const responseData = {
+      summary: {
+        totalEvents: allEvents.length,
+        analyzedEvents: eventAnalyses.length,
+        coursesFound: Object.keys(courseAnalysis).length,
+        eventsByType: {
+          cours: eventAnalyses.filter(e => e.type === 'cours').length,
+          td: eventAnalyses.filter(e => e.type === 'td').length,
+          tme: eventAnalyses.filter(e => e.type === 'tme').length,
+          exam: eventAnalyses.filter(e => e.type === 'exam').length,
+          soutenance: eventAnalyses.filter(e => e.type === 'soutenance').length,
+          rattrapage: eventAnalyses.filter(e => e.type === 'rattrapage').length,
+          other: eventAnalyses.filter(e => e.type === 'other').length
+        }
+      },
+      courseAnalysis,
+      topPatterns,
+      sources: Object.entries(results).map(([source, result]) => ({
+        source,
+        ...result
+      }))
+    };
+
+    // Cache the results if successful and Supabase is available
+    if (hasSuccessfulResults && supabase && allEvents.length > 0) {
+      try {
+        const cacheKey = getCacheKey(validSources);
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + CACHE_TTL_HOURS);
+
+        await supabase
+          .from('analyze_events_cache')
+          .upsert({
+            id: cacheKey,
+            sources: validSources,
+            data: responseData,
+            expires_at: expiresAt.toISOString()
+          });
+
+        console.log(`💾 Cached results for sources: ${validSources.join(', ')}`);
+      } catch (cacheError) {
+        console.warn('Failed to cache results:', cacheError);
+      }
+    }
+
     return NextResponse.json({
       success: hasSuccessfulResults, // Success if at least one source worked
-      data: {
-        summary: {
-          totalEvents: allEvents.length,
-          analyzedEvents: eventAnalyses.length,
-          coursesFound: Object.keys(courseAnalysis).length,
-          eventsByType: {
-            cours: eventAnalyses.filter(e => e.type === 'cours').length,
-            td: eventAnalyses.filter(e => e.type === 'td').length,
-            tme: eventAnalyses.filter(e => e.type === 'tme').length,
-            exam: eventAnalyses.filter(e => e.type === 'exam').length,
-            soutenance: eventAnalyses.filter(e => e.type === 'soutenance').length,
-            rattrapage: eventAnalyses.filter(e => e.type === 'rattrapage').length,
-            other: eventAnalyses.filter(e => e.type === 'other').length
-          }
-        },
-        courseAnalysis,
-        topPatterns,
-        sources: Object.entries(results).map(([source, result]) => ({
-          source,
-          ...result
-        }))
-      },
+      data: responseData,
+      cached: false,
       timestamp: new Date().toISOString()
     });
 
