@@ -39,10 +39,15 @@ const localizer = dateFnsLocalizer({
 export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, selectedMasters }: WeeklyCalendarPreviewProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [currentView, setCurrentView] = useState('week');
-  // Start with a date that's more likely to have events (November 2024)
-  const [currentDate, setCurrentDate] = useState(new Date(2024, 10, 20)); // November 20, 2024
+  // Start with today's date for better UX
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Function to navigate to today
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
 
   const fetchEvents = async () => {
     if (selectedCourses.length === 0 || selectedMasters.length === 0) {
@@ -192,6 +197,9 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
 
         console.log('Final Calendar Events:', calendarEvents.length);
         setEvents(calendarEvents);
+        
+        // Navigate to today's date after loading events for better UX
+        goToToday();
 
     } catch (error) {
       console.error('❌ Failed to fetch calendar events:', error);
@@ -362,6 +370,12 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
             className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Loading...' : 'Load Calendar'}
+          </button>
+          <button
+            onClick={goToToday}
+            className="bg-green-600 text-white px-3 py-2 text-sm rounded-md hover:bg-green-700"
+          >
+            Today
           </button>
           <div className="flex gap-1">
             <button
