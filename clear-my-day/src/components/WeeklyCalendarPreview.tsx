@@ -96,6 +96,10 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
 
       const icsContent = await icsResponse.text();
       console.log('✅ ICS content fetched, length:', icsContent.length);
+      
+      // Debug: Show first few lines of ICS to understand format
+      const icsLines = icsContent.split('\n').slice(0, 30);
+      console.log('📋 First 30 lines of ICS:', icsLines);
 
       // Step 3: Parse ICS content to extract recurring events
       const recurringEvents: RecurringEvent[] = [];
@@ -115,9 +119,11 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
             const startDate = currentEvent.DTSTART ? parseICSDate(currentEvent.DTSTART) : new Date();
             const endDate = currentEvent.DTEND ? parseICSDate(currentEvent.DTEND) : new Date(startDate.getTime() + 2 * 60 * 60 * 1000);
             
-            // Debug: Log event timing
+            // Debug: Log event timing and raw data
             console.log(`📅 Event: ${currentEvent.SUMMARY}`, {
               rawStart: currentEvent.DTSTART,
+              rawEnd: currentEvent.DTEND,
+              allKeys: Object.keys(currentEvent),
               parsedStart: startDate.toLocaleString(),
               dayOfWeek: startDate.toLocaleDateString('en-US', { weekday: 'long' }),
               time: startDate.toLocaleTimeString()
@@ -135,9 +141,13 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
           }
           inEvent = false;
         } else if (inEvent && line.includes(':')) {
-          const [key, ...valueParts] = line.split(':');
-          const value = valueParts.join(':');
-          currentEvent[key] = value;
+          const colonIndex = line.indexOf(':');
+          const key = line.substring(0, colonIndex);
+          const value = line.substring(colonIndex + 1);
+          
+          // Handle property parameters (like DTSTART;TZID=Europe/Paris:20241120T140000)
+          const cleanKey = key.split(';')[0]; // Remove parameters like ;TZID=Europe/Paris
+          currentEvent[cleanKey] = value;
         }
       }
 
