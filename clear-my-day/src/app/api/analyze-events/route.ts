@@ -98,10 +98,11 @@ export async function GET(request: NextRequest) {
     console.log(`Fetching events from sources: ${validSources.join(', ')}`);
     
     try {
-      // Add overall timeout for the entire operation (8 seconds max)
+      // Add overall timeout for the entire operation (45 seconds max for production)
       const fetchPromise = caldavClient.fetchAllCalendars(validSources);
+      const overallTimeout = process.env.NODE_ENV === 'production' ? 45000 : 25000;
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Overall fetch timeout')), 8000)
+        setTimeout(() => reject(new Error('Overall fetch timeout')), overallTimeout)
       );
       
       const fetchResults = await Promise.race([fetchPromise, timeoutPromise]) as Record<string, CalendarFetchResult>;
@@ -119,14 +120,38 @@ export async function GET(request: NextRequest) {
       }
     } catch (error) {
       console.log(`⚠️ Fetch operation timed out or failed: ${error}`);
-      // Mark all sources as failed
+      // Mark all sources as failed but provide helpful error message
       for (const source of validSources) {
         results[source] = { 
           success: false, 
-          error: 'Fetch timeout - try again later', 
+          error: 'Sorbonne servers are slow - this is normal. Try refreshing the page in a few seconds.', 
           eventCount: 0 
         };
       }
+      
+      // Return partial success even if no events were fetched
+      // This allows the UI to show the error message instead of completely failing
+      return NextResponse.json({
+        success: false,
+        error: 'Calendar servers are temporarily slow. Please try again in a moment.',
+        data: {
+          summary: {
+            totalEvents: 0,
+            analyzedEvents: 0,
+            coursesFound: 0,
+            eventsByType: {
+              cours: 0, td: 0, tme: 0, exam: 0, soutenance: 0, rattrapage: 0, other: 0
+            }
+          },
+          courseAnalysis: {},
+          topPatterns: [],
+          sources: Object.entries(results).map(([source, result]) => ({
+            source,
+            ...result
+          }))
+        },
+        timestamp: new Date().toISOString()
+      });
     }
 
     // Analyze events

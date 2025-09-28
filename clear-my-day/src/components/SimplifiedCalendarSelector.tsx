@@ -72,10 +72,13 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
     }
   }, [selectedMasters, selectedCourses]);
 
-  const detectAvailableGroups = async () => {
+  const detectAvailableGroups = async (retryCount = 0) => {
     setIsLoadingGroups(true);
     try {
-      const response = await fetch(`/api/analyze-events?sources=${selectedMasters.join(',')}`);
+      const response = await fetch(`/api/analyze-events?sources=${selectedMasters.join(',')}`, {
+        // Increase timeout for frontend requests
+        signal: AbortSignal.timeout(60000) // 60 seconds
+      });
       const data = await response.json();
       
       if (data.success && data.data?.courseAnalysis) {
@@ -101,11 +104,30 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
         });
         
         setAvailableGroups(groupsMap);
+        setIsLoadingGroups(false);
+      } else if (!data.success && retryCount < 2) {
+        // Retry up to 2 times with exponential backoff
+        console.log(`Group detection failed, retrying in ${(retryCount + 1) * 2} seconds...`);
+        setTimeout(() => {
+          detectAvailableGroups(retryCount + 1);
+        }, (retryCount + 1) * 2000);
+        return; // Don't set loading to false yet
+      } else {
+        console.warn('Group detection failed after retries:', data.error || 'Unknown error');
+        setIsLoadingGroups(false);
       }
     } catch (error) {
       console.error('Failed to detect groups:', error);
-    } finally {
-      setIsLoadingGroups(false);
+      if (retryCount < 2) {
+        // Retry on network errors too
+        console.log(`Network error, retrying in ${(retryCount + 1) * 3} seconds...`);
+        setTimeout(() => {
+          detectAvailableGroups(retryCount + 1);
+        }, (retryCount + 1) * 3000);
+        return; // Don't set loading to false yet
+      } else {
+        setIsLoadingGroups(false);
+      }
     }
   };
 
