@@ -46,18 +46,20 @@ export function expandRecurringEvents(
     }
 
     try {
-      // Parse the RRULE - it should automatically respect UNTIL dates
-      const rrule = RRule.fromString(event.rrule);
+      // Parse the RRULE with the original event start date as DTSTART
+      // This ensures the correct day of the week is preserved
+      const rruleOptions = RRule.parseString(event.rrule);
+      rruleOptions.dtstart = event.start; // Use original event start date
+      const rrule = new RRule(rruleOptions);
       
       // Calculate event duration
       const duration = event.end.getTime() - event.start.getTime();
       
       // Generate occurrences within the date range
-      // The RRULE library will automatically stop at UNTIL date if specified
       const occurrences = rrule.between(dateRange.start, dateRange.end, true);
       
       console.log(`Event ${event.title}: RRULE=${event.rrule}, Generated ${occurrences.length} occurrences`);
-      console.log(`Original event time: ${event.start.toLocaleString()}`);
+      console.log(`Original event time: ${event.start.toLocaleString()} (day: ${event.start.getDay()})`);
       
       occurrences.forEach((occurrenceStart, occurrenceIndex) => {
         // Preserve the original time of day from the event
