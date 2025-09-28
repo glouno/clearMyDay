@@ -2,6 +2,7 @@
 
 import { CalendarEvent, FilterConfig, GroupDetectionResult } from './types';
 import { GROUP_PATTERNS, COURSE_PATTERNS, APP_CONFIG } from './constants';
+import { RRule } from 'rrule';
 
 export class CalendarParser {
   /**
@@ -398,9 +399,6 @@ export class CalendarParser {
     }
 
     try {
-      // Import RRule dynamically to avoid issues
-      const { RRule } = require('rrule');
-      
       // Parse the RRULE string
       const rrule = RRule.fromString(event.rrule);
       
