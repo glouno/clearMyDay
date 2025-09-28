@@ -25,18 +25,11 @@ In Vercel Dashboard → Project → Settings → Environment Variables:
 # CalDAV Credentials (Required)
 CALDAV_USERNAME=student.master
 CALDAV_PASSWORD=guest
-
-# Supabase (Required for persistence)
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-### Step 3: Configure Supabase
-1. **Create Supabase project** (if not done)
-2. **Copy URL and anon key** to Vercel env vars
-3. **Database tables** are created automatically by the app
+**Note**: Current implementation uses stateless architecture - no database required!
 
-### Step 4: Test Deployment
+### Step 3: Test Deployment
 1. **Visit deployed URL**
 2. **Test calendar generation**: Select masters → courses → generate
 3. **Test subscription URL**: Copy URL → add to calendar app
@@ -52,15 +45,15 @@ SUPABASE_ANON_KEY=your_supabase_anon_key
 
 ### Scalability
 - **Target Users**: 200+ Sorbonne M1 students
-- **Vercel Limits**: Well within free tier
-- **Supabase Limits**: 500MB storage, 2GB bandwidth (sufficient)
+- **Vercel Limits**: Well within free tier (stateless functions)
+- **Storage**: None required (stateless architecture)
 
 ## 🔧 Post-Deployment
 
 ### Monitor
 - **Vercel Analytics**: Track response times and errors
-- **Supabase Dashboard**: Monitor database usage
 - **Calendar Client Testing**: Verify subscription URLs work
+- **CalDAV Health**: Monitor Sorbonne calendar availability
 
 ### Maintenance
 - **Automatic Updates**: GitHub pushes trigger Vercel rebuilds
