@@ -112,8 +112,16 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
         } else if (line === 'END:VEVENT' && inEvent) {
           // Process the completed event
           if (currentEvent.SUMMARY) {
-            const startDate = currentEvent.DTSTART ? new Date(currentEvent.DTSTART) : new Date();
-            const endDate = currentEvent.DTEND ? new Date(currentEvent.DTEND) : new Date(startDate.getTime() + 2 * 60 * 60 * 1000);
+            const startDate = currentEvent.DTSTART ? parseICSDate(currentEvent.DTSTART) : new Date();
+            const endDate = currentEvent.DTEND ? parseICSDate(currentEvent.DTEND) : new Date(startDate.getTime() + 2 * 60 * 60 * 1000);
+            
+            // Debug: Log event timing
+            console.log(`📅 Event: ${currentEvent.SUMMARY}`, {
+              rawStart: currentEvent.DTSTART,
+              parsedStart: startDate.toLocaleString(),
+              dayOfWeek: startDate.toLocaleDateString('en-US', { weekday: 'long' }),
+              time: startDate.toLocaleTimeString()
+            });
             
             recurringEvents.push({
               id: currentEvent.UID || `event-${recurringEvents.length}`,
@@ -174,11 +182,10 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
 
         console.log('Final Calendar Events:', calendarEvents.length);
         setEvents(calendarEvents);
-      } else {
-        console.error('Debug failed:', debugData);
-      }
+
     } catch (error) {
-      console.error('Failed to fetch calendar events:', error);
+      console.error('❌ Failed to fetch calendar events:', error);
+      setError(error instanceof Error ? error.message : 'Unknown error occurred');
     } finally {
       setLoading(false);
     }
@@ -224,23 +231,41 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
   };
 
   const parseICSDate = (dateStr: string): Date => {
+    // Clean the date string
+    const cleanDate = dateStr.trim();
+    
     // Handle different ICS date formats
-    if (dateStr.includes('T')) {
-      // DateTime format: 20240101T080000Z
-      const year = dateStr.substring(0, 4);
-      const month = dateStr.substring(4, 6);
-      const day = dateStr.substring(6, 8);
-      const hour = dateStr.substring(9, 11);
-      const minute = dateStr.substring(11, 13);
-      const second = dateStr.substring(13, 15);
-      return new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}Z`);
-    } else {
-      // Date format: 20240101
-      const year = dateStr.substring(0, 4);
-      const month = dateStr.substring(4, 6);
-      const day = dateStr.substring(6, 8);
-      return new Date(`${year}-${month}-${day}`);
+    if (cleanDate.includes('T')) {
+      // DateTime format: 20241120T140000Z or 20241120T140000
+      const isUTC = cleanDate.endsWith('Z');
+      const dateTimePart = cleanDate.replace('Z', '');
+      
+      if (dateTimePart.length >= 15) { // YYYYMMDDTHHMMSS
+        const year = parseInt(dateTimePart.substring(0, 4));
+        const month = parseInt(dateTimePart.substring(4, 6)) - 1; // Month is 0-indexed
+        const day = parseInt(dateTimePart.substring(6, 8));
+        const hour = parseInt(dateTimePart.substring(9, 11));
+        const minute = parseInt(dateTimePart.substring(11, 13));
+        const second = parseInt(dateTimePart.substring(13, 15)) || 0;
+        
+        if (isUTC) {
+          return new Date(Date.UTC(year, month, day, hour, minute, second));
+        } else {
+          // Local time - assume Paris timezone (UTC+1/+2)
+          return new Date(year, month, day, hour, minute, second);
+        }
+      }
+    } else if (cleanDate.length === 8) {
+      // Date only format: 20241120
+      const year = parseInt(cleanDate.substring(0, 4));
+      const month = parseInt(cleanDate.substring(4, 6)) - 1;
+      const day = parseInt(cleanDate.substring(6, 8));
+      return new Date(year, month, day);
     }
+    
+    // Fallback to standard Date parsing
+    console.warn('Unexpected date format:', cleanDate);
+    return new Date(cleanDate);
   };
 
   const getEventType = (title: string): 'cours' | 'td' | 'tme' | 'exam' | 'other' => {
