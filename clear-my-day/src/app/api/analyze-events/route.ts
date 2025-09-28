@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { caldavClient } from '@/lib/caldav-client';
 import { SORBONNE_CALENDARS } from '@/lib/constants';
+import { CalendarEvent } from '@/lib/types';
 
 interface EventAnalysis {
   summary: string;
@@ -121,9 +122,9 @@ export async function GET(request: NextRequest) {
     const eventAnalyses: EventAnalysis[] = [];
     const fieldUsage = new Map<string, number>();
     const timezoneAnalysis = {
-      dstTransitionEvents: [] as any[],
+      dstTransitionEvents: [] as CalendarEvent[],
       timezoneUsage: new Map<string, number>(),
-      october2024Events: [] as any[]
+      october2024Events: [] as CalendarEvent[]
     };
 
     for (const event of allEvents) {
@@ -156,7 +157,7 @@ export async function GET(request: NextRequest) {
             start: event.start,
             date: eventDate.toISOString(),
             beforeDST: eventDate < new Date('2024-10-27T02:00:00Z'),
-            timezone: (event as any).timezone || 'UTC'
+            timezone: 'Europe/Paris'
           });
         }
       }

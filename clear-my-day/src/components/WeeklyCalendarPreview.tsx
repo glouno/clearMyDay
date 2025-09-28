@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { expandRecurringEvents, type RecurringEvent, type ExpandedEvent } from '@/lib/recurrence-handler';
+import { expandRecurringEvents, type RecurringEvent } from '@/lib/recurrence-handler';
 
 interface WeeklyCalendarPreviewProps {
   courseGroups: { [courseId: string]: string };
@@ -42,7 +42,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
   // Start with today's date for better UX
   const [currentDate, setCurrentDate] = useState(new Date());
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
 
   // Function to navigate to today
   const goToToday = () => {
@@ -109,7 +109,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
       // Step 3: Parse ICS content to extract recurring events
       const recurringEvents: RecurringEvent[] = [];
       const lines = icsContent.split('\n');
-      let currentEvent: any = {};
+      let currentEvent: Record<string, string> = {};
       let inEvent = false;
 
       for (let i = 0; i < lines.length; i++) {
@@ -442,7 +442,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
           startAccessor="start"
           endAccessor="end"
           style={{ height: '100%' }}
-          view={currentView as any}
+          view={currentView as 'week' | 'month'}
           onView={setCurrentView}
           date={currentDate}
           onNavigate={setCurrentDate}

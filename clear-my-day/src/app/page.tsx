@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import SimplifiedCalendarSelector from '@/components/SimplifiedCalendarSelector';
 import WeeklyCalendarPreview from '@/components/WeeklyCalendarPreview';
+import { FilterConfig } from '@/lib/types';
 
 export default function Home() {
   const [courseGroups, setCourseGroups] = useState<{[courseId: string]: string}>({});
@@ -10,8 +11,8 @@ export default function Home() {
   const [selectedMasters, setSelectedMasters] = useState<('DAC' | 'IMA' | 'ANDROIDE')[]>([]);
   const [showWeeklyCalendar, setShowWeeklyCalendar] = useState(false);
 
-  const handleFilterChange = (filter: any) => {
-    setSelectedMasters(filter.masters);
+  const handleFilterChange = (filter: FilterConfig) => {
+    setSelectedMasters(filter.masters as ('DAC' | 'IMA' | 'ANDROIDE')[]);
     setSelectedCourses(filter.courses);
     setCourseGroups(filter.courseGroups || {});
   };

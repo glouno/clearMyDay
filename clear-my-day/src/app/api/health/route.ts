@@ -27,7 +27,7 @@ export async function GET() {
     const response: HealthCheckResponse = {
       status: overallStatus,
       services: {
-        caldav: caldavHealth as any
+        caldav: caldavHealth as { DAC: 'up' | 'down'; IMA: 'up' | 'down'; ANDROIDE: 'up' | 'down' }
       },
       uptime: Math.floor((Date.now() - startTime) / 1000),
       version: '1.0.0'

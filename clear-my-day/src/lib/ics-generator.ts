@@ -1,6 +1,6 @@
 // ICS feed generator for creating personalized calendar feeds
 
-import { CalendarEvent, PersonalCalendarConfig } from './types';
+import { CalendarEvent, PersonalCalendarConfig, FilterConfig } from './types';
 import { APP_CONFIG } from './constants';
 
 export class ICSGenerator {
@@ -242,7 +242,7 @@ export class ICSGenerator {
   createCalendarConfig(
     name: string,
     token: string,
-    filter: any
+    filter: FilterConfig
   ): PersonalCalendarConfig {
     return {
       id: `cal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
