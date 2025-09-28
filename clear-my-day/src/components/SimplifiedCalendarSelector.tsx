@@ -83,17 +83,20 @@ export default function SimplifiedCalendarSelector({ onFilterChange, onPreview, 
         
         selectedCourses.forEach(courseId => {
           const courseData = data.data.courseAnalysis[courseId];
-          if (courseData) {
-            const groups = new Set<string>();
+          if (courseData && courseData.groups) {
+            const allGroups = new Set<string>();
             
-            Object.keys(courseData.eventTypes).forEach(eventType => {
-              const match = eventType.match(/^(td|tme)_(\d+)$/);
-              if (match) {
-                groups.add(match[2]);
-              }
-            });
+            // Add TD groups
+            if (courseData.groups.td) {
+              courseData.groups.td.forEach((group: string) => allGroups.add(group));
+            }
             
-            groupsMap[courseId] = Array.from(groups).sort();
+            // Add TME groups
+            if (courseData.groups.tme) {
+              courseData.groups.tme.forEach((group: string) => allGroups.add(group));
+            }
+            
+            groupsMap[courseId] = Array.from(allGroups).sort((a, b) => parseInt(a) - parseInt(b));
           }
         });
         
