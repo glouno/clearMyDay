@@ -40,8 +40,8 @@ export async function POST(request: NextRequest) {
     });
 
     // Generate subscription URL
-    const baseUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://your-domain.com' 
+    const baseUrl = process.env.NODE_ENV === 'production'
+      ? `https://${request.headers.get('host')}`  // Dynamic Vercel URL
       : `http://localhost:${process.env.PORT || 3000}`;
     
     const subscriptionUrl = `${baseUrl}/api/calendar/${token}`;

@@ -46,9 +46,9 @@ export const GROUP_PATTERNS = {
     /G(\d+)/i                // G1, G2, etc.
   ],
   TME: [
-    /TME\s*([A-Z])/i,        // TME A, TME B, etc.
-    /TP\s*([A-Z])/i,         // TP A, TP B, etc.
-    /Groupe\s*([A-Z])/i      // Groupe A, Groupe B, etc.
+    /TME\s*([A-Z])(?:\s|$)/i,        // TME A, TME B, etc. - Fixed with word boundary
+    /TP\s*([A-Z])(?:\s|$)/i,         // TP A, TP B, etc. - Fixed with word boundary
+    /Groupe\s*([A-Z])(?:\s|$)/i      // Groupe A, Groupe B, etc. - Fixed with word boundary
   ]
 };
 

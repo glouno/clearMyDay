@@ -3,14 +3,12 @@
 import React, { useState } from 'react';
 import SimplifiedCalendarSelector from '@/components/SimplifiedCalendarSelector';
 import WeeklyCalendarPreview from '@/components/WeeklyCalendarPreview';
-import EventAnalyzer from '@/components/EventAnalyzer';
 
 export default function Home() {
   const [courseGroups, setCourseGroups] = useState<{[courseId: string]: string}>({});
   const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
   const [selectedMasters, setSelectedMasters] = useState<('DAC' | 'IMA' | 'ANDROIDE')[]>([]);
   const [showWeeklyCalendar, setShowWeeklyCalendar] = useState(false);
-  const [showEventAnalyzer, setShowEventAnalyzer] = useState(false);
 
   const handleFilterChange = (filter: any) => {
     setSelectedMasters(filter.masters);
@@ -38,12 +36,6 @@ export default function Home() {
               >
                 {showWeeklyCalendar ? 'Hide' : 'Show'} Weekly Calendar
               </button>
-              <button
-                onClick={() => setShowEventAnalyzer(!showEventAnalyzer)}
-                className="bg-orange-600 text-white px-6 py-2 rounded-md hover:bg-orange-700"
-              >
-                {showEventAnalyzer ? 'Hide' : 'Show'} Event Analyzer
-              </button>
             </div>
           </div>
 
@@ -55,11 +47,6 @@ export default function Home() {
             />
           )}
 
-          {showEventAnalyzer && (
-            <div className="mt-8">
-              <EventAnalyzer />
-            </div>
-          )}
         </div>
       </div>
     </div>

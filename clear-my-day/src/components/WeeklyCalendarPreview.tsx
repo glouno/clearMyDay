@@ -38,74 +38,100 @@ const localizer = dateFnsLocalizer({
 
 export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, selectedMasters }: WeeklyCalendarPreviewProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [loading, setLoading] = useState(false);
   const [currentView, setCurrentView] = useState('week');
   // Start with a date that's more likely to have events (November 2024)
   const [currentDate, setCurrentDate] = useState(new Date(2024, 10, 20)); // November 20, 2024
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchEvents = async () => {
-    if (selectedCourses.length === 0 || selectedMasters.length === 0) return;
+    if (selectedCourses.length === 0 || selectedMasters.length === 0) {
+      setError('Please select at least one master and one course');
+      return;
+    }
 
     setLoading(true);
+    setError(null);
+    
     try {
-      // Use debug endpoint to see what's happening
-      const response = await fetch('/api/debug-calendar', {
+      console.log('🚀 Fetching calendar events using simplified flow...');
+      
+      // Step 1: Generate calendar using the working API
+      const response = await fetch('/api/generate-calendar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: 'Calendar Preview',
+          name: 'Weekly Calendar Preview',
           filter: {
             masters: selectedMasters,
             courses: selectedCourses,
+            groups: { td: '', tme: '' }, // Required by FilterConfig
             courseGroups: courseGroups,
             dateRange: {
-              start: '2024-01-01',
-              end: '2025-12-31'
+              start: new Date('2024-01-01'),
+              end: new Date('2025-12-31')
             }
           }
         })
       });
 
-      const debugData = await response.json();
-      console.log('Debug Calendar Data:', debugData);
-      console.log('Event Blocks:', debugData.debug?.eventBlocks);
-      console.log('Parse Errors:', debugData.debug?.parseErrors);
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`);
+      }
 
-      if (debugData.success) {
-        // Log detailed info about event blocks
-        debugData.debug.eventBlocks.forEach((block: any, index: number) => {
-          console.log(`Event Block ${index}:`, {
-            parsed: block.parsed,
-            parseError: block.parseError,
-            rrule: block.parsed?.rrule,
-            rawLines: block.rawLines?.slice(0, 5) // First 5 lines only
-          });
-        });
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to generate calendar');
+      }
 
-        // Convert debug event blocks to recurring events
-        const recurringEvents: RecurringEvent[] = debugData.debug.eventBlocks
-          .filter((block: any) => block.parsed && !block.parseError)
-          .map((block: any, index: number) => {
-            // The API already returns properly parsed Date objects, use them directly
-            const startDate = block.parsed.start instanceof Date ? block.parsed.start : new Date(block.parsed.start);
-            const endDate = block.parsed.end instanceof Date ? block.parsed.end : new Date(block.parsed.end);
+      console.log('✅ Calendar generated successfully:', data.data.token);
+
+      // Step 2: Fetch the ICS content
+      const icsResponse = await fetch(data.data.subscriptionUrl);
+      
+      if (!icsResponse.ok) {
+        throw new Error(`ICS Fetch Error: ${icsResponse.status}`);
+      }
+
+      const icsContent = await icsResponse.text();
+      console.log('✅ ICS content fetched, length:', icsContent.length);
+
+      // Step 3: Parse ICS content to extract recurring events
+      const recurringEvents: RecurringEvent[] = [];
+      const lines = icsContent.split('\n');
+      let currentEvent: any = {};
+      let inEvent = false;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        if (line === 'BEGIN:VEVENT') {
+          inEvent = true;
+          currentEvent = {};
+        } else if (line === 'END:VEVENT' && inEvent) {
+          // Process the completed event
+          if (currentEvent.SUMMARY) {
+            const startDate = currentEvent.DTSTART ? new Date(currentEvent.DTSTART) : new Date();
+            const endDate = currentEvent.DTEND ? new Date(currentEvent.DTEND) : new Date(startDate.getTime() + 2 * 60 * 60 * 1000);
             
-            console.log(`Event ${index}: ${block.parsed.title}`, {
-              rawStart: block.parsed.rawStart,
-              parsedStart: startDate.toISOString(),
-              timezone: block.parsed.timezone
-            });
-            
-            return {
-              id: block.parsed.id || `event-${index}`,
-              title: block.parsed.title,
+            recurringEvents.push({
+              id: currentEvent.UID || `event-${recurringEvents.length}`,
+              title: currentEvent.SUMMARY,
               start: startDate,
               end: endDate,
-              rrule: block.parsed.rrule,
-              location: block.parsed.location,
-              description: block.parsed.description
-            };
-          });
+              rrule: currentEvent.RRULE,
+              location: currentEvent.LOCATION,
+              description: currentEvent.DESCRIPTION
+            });
+          }
+          inEvent = false;
+        } else if (inEvent && line.includes(':')) {
+          const [key, ...valueParts] = line.split(':');
+          const value = valueParts.join(':');
+          currentEvent[key] = value;
+        }
+      }
 
         console.log('Recurring Events:', recurringEvents);
 
