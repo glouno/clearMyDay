@@ -57,15 +57,30 @@ export function expandRecurringEvents(
       const occurrences = rrule.between(dateRange.start, dateRange.end, true);
       
       console.log(`Event ${event.title}: RRULE=${event.rrule}, Generated ${occurrences.length} occurrences`);
+      console.log(`Original event time: ${event.start.toLocaleString()}`);
       
       occurrences.forEach((occurrenceStart, occurrenceIndex) => {
-        const occurrenceEnd = new Date(occurrenceStart.getTime() + duration);
+        // Preserve the original time of day from the event
+        const originalHour = event.start.getHours();
+        const originalMinute = event.start.getMinutes();
+        const originalSecond = event.start.getSeconds();
+        
+        // Set the occurrence to the correct date but with original time
+        const correctedStart = new Date(occurrenceStart);
+        correctedStart.setHours(originalHour, originalMinute, originalSecond);
+        
+        const correctedEnd = new Date(correctedStart.getTime() + duration);
+        
+        // Debug first few occurrences
+        if (occurrenceIndex < 3) {
+          console.log(`  Occurrence ${occurrenceIndex}: ${correctedStart.toLocaleString()} (day: ${correctedStart.getDay()})`);
+        }
         
         expandedEvents.push({
           id: `${event.id}-occurrence-${occurrenceIndex}`,
           title: event.title,
-          start: occurrenceStart,
-          end: occurrenceEnd,
+          start: correctedStart,
+          end: correctedEnd,
           location: event.location,
           description: event.description,
           isRecurring: true,
