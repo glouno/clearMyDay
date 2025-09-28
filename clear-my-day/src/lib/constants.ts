@@ -24,8 +24,8 @@ export const APP_CONFIG = {
   RATE_LIMIT_REQUESTS_PER_MINUTE: 60,
   RATE_LIMIT_REQUESTS_PER_TOKEN: 10,
   MAX_RESPONSE_TIME_MS: 5000,
-  MAX_RETRIES: 3,
-  TIMEOUT: 10000,                  // 10 seconds
+  MAX_RETRIES: process.env.NODE_ENV === 'production' ? 1 : 2,  // Aggressive for Vercel
+  TIMEOUT: process.env.NODE_ENV === 'production' ? 6000 : 8000,     // 6s for Vercel, 8s for dev
   MIN_CACHE_SIZE: 100,             // Minimum events to cache
   MAX_CACHE_SIZE: 10000,           // Maximum events to cache
   DEFAULT_TIMEZONE: 'Europe/Paris',

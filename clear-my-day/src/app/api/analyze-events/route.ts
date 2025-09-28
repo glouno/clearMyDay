@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { caldavClient } from '@/lib/caldav-client';
 import { SORBONNE_CALENDARS } from '@/lib/constants';
-import { CalendarEvent } from '@/lib/types';
+import { CalendarEvent, CalendarFetchResult } from '@/lib/types';
 
 interface EventAnalysis {
   summary: string;
@@ -94,19 +94,38 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Fetch from all sources
+    // Fetch from all sources with timeout protection
     console.log(`Fetching events from sources: ${validSources.join(', ')}`);
-    const fetchResults = await caldavClient.fetchAllCalendars(validSources);
     
-    // Process results
-    for (const [source, result] of Object.entries(fetchResults)) {
-      if (result.success) {
-        allEvents.push(...result.events);
-        results[source] = { success: true, eventCount: result.events.length };
-        console.log(`✅ ${source}: ${result.events.length} events`);
-      } else {
-        results[source] = { success: false, error: result.error, eventCount: 0 };
-        console.log(`❌ ${source}: ${result.error}`);
+    try {
+      // Add overall timeout for the entire operation (8 seconds max)
+      const fetchPromise = caldavClient.fetchAllCalendars(validSources);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Overall fetch timeout')), 8000)
+      );
+      
+      const fetchResults = await Promise.race([fetchPromise, timeoutPromise]) as Record<string, CalendarFetchResult>;
+      
+      // Process results
+      for (const [source, result] of Object.entries(fetchResults)) {
+        if (result.success) {
+          allEvents.push(...result.events);
+          results[source] = { success: true, eventCount: result.events.length };
+          console.log(`✅ ${source}: ${result.events.length} events`);
+        } else {
+          results[source] = { success: false, error: result.error, eventCount: 0 };
+          console.log(`❌ ${source}: ${result.error}`);
+        }
+      }
+    } catch (error) {
+      console.log(`⚠️ Fetch operation timed out or failed: ${error}`);
+      // Mark all sources as failed
+      for (const source of validSources) {
+        results[source] = { 
+          success: false, 
+          error: 'Fetch timeout - try again later', 
+          eventCount: 0 
+        };
       }
     }
 
@@ -165,8 +184,11 @@ export async function GET(request: NextRequest) {
       .slice(0, 20)
       .map(([pattern, count]) => ({ pattern, count }));
 
+    // Determine if we have any successful results
+    const hasSuccessfulResults = Object.values(results).some(r => r.success);
+
     return NextResponse.json({
-      success: true,
+      success: hasSuccessfulResults, // Success if at least one source worked
       data: {
         summary: {
           totalEvents: allEvents.length,
