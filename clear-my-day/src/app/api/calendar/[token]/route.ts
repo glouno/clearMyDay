@@ -1,10 +1,10 @@
 // API endpoint for serving personalized ICS calendar feeds
 
 import { NextRequest, NextResponse } from 'next/server';
-import { CalendarParser } from '@/lib/calendar-parser';
+import { CalendarStorage } from '@/lib/calendar-storage';
 import { caldavClient } from '@/lib/caldav-client';
 import { ICSGenerator } from '@/lib/ics-generator';
-import { calendarConfigs } from '@/lib/calendar-storage';
+import { CalendarParser } from '@/lib/calendar-parser';
 
 // Rate limiting storage
 const rateLimitStorage = new Map<string, { count: number; resetTime: number }>();
@@ -38,8 +38,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return new NextResponse('Rate limit exceeded', { status: 429 });
   }
 
-  // Get configuration from token
-  const config = calendarConfigs.get(token);
+  // Get configuration from token (Supabase or fallback)
+  const config = await CalendarStorage.get(token);
   
   if (!config) {
     return new NextResponse('Invalid token', { status: 404 });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { calendarConfigs, CalendarConfig } from '@/lib/calendar-storage';
+import { CalendarStorage, CalendarConfig } from '@/lib/calendar-storage';
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,18 +26,23 @@ export async function POST(request: NextRequest) {
     // Generate unique token for this calendar configuration
     const token = uuidv4();
     
-    // Store the configuration
-    calendarConfigs.set(token, {
+    // Store the configuration in Supabase
+    const config: CalendarConfig = {
       name,
       filter: {
         ...filter,
         dateRange: {
-          start: new Date(filter.dateRange.start),
-          end: new Date(filter.dateRange.end)
+          start: new Date(filter.dateRange.start).toISOString(),
+          end: new Date(filter.dateRange.end).toISOString()
         }
       },
       createdAt: new Date()
-    });
+    };
+    
+    const saved = await CalendarStorage.set(token, config);
+    if (!saved) {
+      console.warn('Failed to save to Supabase, but continuing with fallback storage');
+    }
 
     // Generate subscription URL
     const baseUrl = process.env.NODE_ENV === 'production'
@@ -64,5 +69,5 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Export the calendar configs for use by other API routes
-export { calendarConfigs };
+// Export the calendar storage for use by other API routes
+export { CalendarStorage };
