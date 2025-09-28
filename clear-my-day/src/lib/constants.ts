@@ -24,8 +24,8 @@ export const APP_CONFIG = {
   RATE_LIMIT_REQUESTS_PER_MINUTE: 60,
   RATE_LIMIT_REQUESTS_PER_TOKEN: 10,
   MAX_RESPONSE_TIME_MS: 5000,
-  MAX_RETRIES: process.env.NODE_ENV === 'production' ? 1 : 2,  // Conservative for production
-  TIMEOUT: process.env.NODE_ENV === 'production' ? 12000 : 10000,   // 12s for production, 10s for dev
+  MAX_RETRIES: process.env.NODE_ENV === 'production' ? 2 : 2,  // Allow retries for unreliable Sorbonne servers
+  TIMEOUT: process.env.NODE_ENV === 'production' ? 20000 : 15000,   // 20s for production, 15s for dev (Sorbonne servers are slow)
   MIN_CACHE_SIZE: 100,             // Minimum events to cache
   MAX_CACHE_SIZE: 10000,           // Maximum events to cache
   DEFAULT_TIMEZONE: 'Europe/Paris',
@@ -54,11 +54,20 @@ export const GROUP_PATTERNS = {
 
 // Course code patterns for filtering
 export const COURSE_PATTERNS = {
+  // DAC courses
   DALAS: /DALAS/i,
   LRC: /LRC/i,
   MLBDA: /MLBDA/i,
   MAPSI: /MAPSI/i,
-  MOGPL: /MOGPL/i
+  MOGPL: /MOGPL/i,
+  
+  // IMA courses
+  BIMA: /BIMA/i,
+  
+  // ANDROIDE courses
+  IREC: /IREC/i,
+  
+  // Add more courses as needed - this should be dynamic based on masters
 };
 
 // HTTP headers for calendar requests

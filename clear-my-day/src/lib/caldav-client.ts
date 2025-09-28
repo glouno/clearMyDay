@@ -38,6 +38,10 @@ class CalDAVClient {
     
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
+        // Create manual timeout controller (AbortSignal.timeout not reliable in Vercel)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+        
         const response = await fetch(source.url, {
           method: 'GET',
           headers: {
@@ -45,8 +49,10 @@ class CalDAVClient {
             'User-Agent': HTTP_HEADERS.USER_AGENT,
             'Accept': 'text/calendar',
           },
-          signal: AbortSignal.timeout(this.timeout)
+          signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);

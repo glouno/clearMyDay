@@ -127,9 +127,9 @@ export async function GET(request: NextRequest) {
     console.log(`Fetching events from sources: ${validSources.join(', ')}`);
     
     try {
-      // Add overall timeout for the entire operation (30 seconds max for production)
+      // Add overall timeout for the entire operation (50 seconds max for production)
       const fetchPromise = caldavClient.fetchAllCalendars(validSources);
-      const overallTimeout = process.env.NODE_ENV === 'production' ? 30000 : 20000;
+      const overallTimeout = process.env.NODE_ENV === 'production' ? 50000 : 35000;
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Overall fetch timeout')), overallTimeout)
       );
