@@ -89,12 +89,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       status: 200,
       headers: {
         'Content-Type': 'text/calendar; charset=utf-8',
-        'Content-Disposition': `attachment; filename="${config.name.replace(/[^a-zA-Z0-9]/g, '_')}.ics"`,
+        'Content-Disposition': `inline; filename="${config.name.replace(/[^a-zA-Z0-9]/g, '_')}.ics"`,
         'Cache-Control': 'public, max-age=300', // Cache for 5 minutes
         'ETag': `"${token}-${config.createdAt.getTime()}"`,
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY'
       }
     });
 

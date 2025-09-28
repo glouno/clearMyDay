@@ -398,6 +398,22 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
           .rbc-time-view .rbc-header {
             border-bottom: 1px solid #E5E7EB;
           }
+          /* Fix toolbar label contrast */
+          .rbc-toolbar-label {
+            color: #000 !important;
+            font-weight: 600;
+          }
+          /* Fix time labels contrast */
+          .rbc-time-view .rbc-time-gutter .rbc-timeslot-group {
+            color: #000 !important;
+          }
+          .rbc-time-view .rbc-time-gutter .rbc-label {
+            color: #000 !important;
+          }
+          /* Fix header text */
+          .rbc-header {
+            color: #000 !important;
+          }
         `}</style>
         <Calendar
           localizer={localizer}
@@ -429,22 +445,22 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
 
       <div className="mt-4 space-y-3">
         {/* Event Type Legend */}
-        <div className="flex gap-4 text-sm">
+        <div className="flex gap-4 text-sm text-black">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: '#3B82F6' }}></div>
-            <span>Cours</span>
+            <span className="text-black">Cours</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: '#10B981' }}></div>
-            <span>TD</span>
+            <span className="text-black">TD</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: '#8B5CF6' }}></div>
-            <span>TME</span>
+            <span className="text-black">TME</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: '#EF4444' }}></div>
-            <span>Exam</span>
+            <span className="text-black">Exam</span>
           </div>
         </div>
 
