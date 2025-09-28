@@ -61,8 +61,8 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
     try {
       console.log('🚀 Fetching calendar events using simplified flow...');
       
-      // Step 1: Generate calendar using the working API
-      const response = await fetch('/api/generate-calendar', {
+      // Step 1: Generate preview calendar (no persistent storage)
+      const response = await fetch('/api/preview-calendar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -80,28 +80,30 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
         })
       });
 
-      if (!response.ok) {
         throw new Error(`API Error: ${response.status}`);
       }
 
       const data = await response.json();
       
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to generate calendar');
+      if (data.success && data.preview && data.data.events) {
+        console.log('✅ Preview generated successfully');
+        
+        // Use events directly from preview response
+        const events = data.data.events.map((event: any) => ({
+          id: event.uid || `event-${Math.random()}`,
+          title: event.summary,
+          start: new Date(event.start),
+          end: new Date(event.end),
+          location: event.location || '',
+          description: event.description || ''
+        }));
+        
+        console.log('📊 Preview events:', events.length);
+        setEvents(events);
+      } else {
+        setError(data.error || 'Failed to generate preview');
       }
 
-      console.log('✅ Calendar generated successfully:', data.data.token);
-
-      // Step 2: Fetch the ICS content
-      const icsResponse = await fetch(data.data.subscriptionUrl);
-      
-      if (!icsResponse.ok) {
-        throw new Error(`ICS Fetch Error: ${icsResponse.status}`);
-      }
-
-      const icsContent = await icsResponse.text();
-      console.log('✅ ICS content fetched, length:', icsContent.length);
-      
       // Debug: Show first few lines of ICS to understand format
       const icsLines = icsContent.split('\n').slice(0, 30);
       console.log('📋 First 30 lines of ICS:', icsLines);

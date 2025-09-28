@@ -4,10 +4,17 @@
 
 A web application that creates personalized calendar subscriptions from Sorbonne University's master calendars, filtering out 99.5% of calendar noise (4604→21 events).
 
+## 🚀 **Current Status: Production Ready**
+
+- ✅ **Multi-user support** with persistent Supabase storage
+- ✅ **Apple Calendar compatibility** with correct timezone handling
+- ✅ **Fast group detection** with 4-hour caching
+- ✅ **Reliable Sorbonne server integration** with proper timeout handling
+- ✅ **Preview system** to avoid database bloatter calendars, filtering out 99.5% of calendar noise (4604→21 events).
+
 ## 🎯 What It Does
 
 Transform overwhelming university calendars into clean, personalized feeds:
-
 - ✅ **Select your courses** from DAC, IMA, ANDROIDE masters
 - ✅ **Pick your TD/TME groups** (automatic detection + manual override)
 - ✅ **Generate subscription URL** for any calendar app
