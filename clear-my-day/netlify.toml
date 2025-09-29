@@ -1,0 +1,44 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# Force HTTPS and add security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' data:;"
+
+# Calendar subscription endpoint
+[[redirects]]
+  from = "/calendar/:token"
+  to = "/api/calendar/:token"
+  status = 200
+
+# API routes
+[[redirects]]
+  from = "/api/generate-calendar"
+  to = "/.netlify/functions/generate-calendar"
+  status = 200
+
+[[redirects]]
+  from = "/api/analyze-events"
+  to = "/.netlify/functions/analyze-events"
+  status = 200
+
+[[redirects]]
+  from = "/api/preview-calendar"
+  to = "/.netlify/functions/preview-calendar"
+  status = 200
