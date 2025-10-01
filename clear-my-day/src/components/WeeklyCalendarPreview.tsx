@@ -491,26 +491,37 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
             }
             /* Compact week view on mobile */
             .rbc-time-view .rbc-time-gutter {
-              width: 35px !important;
-              min-width: 35px !important;
+              width: 40px !important;
+              min-width: 40px !important;
+              max-width: 40px !important;
             }
             .rbc-time-view .rbc-allday-cell {
               display: none;
             }
             .rbc-event-content {
               font-size: 10px !important;
-              padding: 1px 2px !important;
+              padding: 2px 3px !important;
+              line-height: 1.2 !important;
+              white-space: normal !important;
+              overflow: visible !important;
             }
             .rbc-event-label {
               font-size: 9px !important;
             }
-            /* Hide Saturday and Sunday on mobile in week view */
-            /* Sunday is first column (1), Saturday is last column (7) */
-            .rbc-time-view .rbc-time-content > .rbc-day-slot:first-child,
-            .rbc-time-view .rbc-time-content > .rbc-day-slot:last-child,
-            .rbc-time-header .rbc-header:first-child,
-            .rbc-time-header .rbc-header:last-child {
+            .rbc-event {
+              padding: 2px 3px !important;
+            }
+            /* Hide Saturday and Sunday columns completely on mobile */
+            /* Target both header and content for first (Sun) and last (Sat) columns */
+            .rbc-time-header-content .rbc-header:first-child,
+            .rbc-time-header-content .rbc-header:last-child,
+            .rbc-time-content .rbc-day-slot:first-child,
+            .rbc-time-content .rbc-day-slot:last-child,
+            .rbc-time-header-content > div:first-child,
+            .rbc-time-header-content > div:last-child {
               display: none !important;
+              width: 0 !important;
+              min-width: 0 !important;
             }
             /* Make agenda view more readable on mobile */
             .rbc-agenda-view {
@@ -544,10 +555,18 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
           max={new Date(0, 0, 0, 20, 0, 0)}
           components={{
             event: ({ event }: { event: CalendarEvent }) => (
-              <div className="truncate px-1">
-                <div className={`font-medium ${isMobile ? 'text-xs' : 'text-xs'}`}>
+              <div className={isMobile && currentView === 'week' ? 'px-1' : 'truncate px-1'}>
+                <div 
+                  className={`font-medium ${isMobile ? 'text-xs' : 'text-xs'}`}
+                  style={isMobile && currentView === 'week' ? { 
+                    whiteSpace: 'normal', 
+                    lineHeight: '1.2',
+                    wordBreak: 'break-word',
+                    overflow: 'hidden'
+                  } : {}}
+                >
                   {isMobile && currentView === 'week' 
-                    ? event.title.split('-')[0].trim().substring(0, 15)
+                    ? event.title.split('-')[0].trim()
                     : event.title
                   }
                 </div>
