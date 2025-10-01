@@ -436,38 +436,14 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
             border-bottom: 1px solid #E5E7EB;
           }
           .rbc-today {
-            background-color: #FEF3C7;
-          }
           .rbc-off-range-bg {
             background-color: #F9FAFB;
           }
-          .rbc-toolbar {
-            flex-wrap: wrap;
-            margin-bottom: 16px;
-          }
-          .rbc-toolbar button {
-            color: #374151;
-            border: 1px solid #D1D5DB;
-            background-color: #FFFFFF;
-          }
-          .rbc-toolbar button:hover {
-            background-color: #F3F4F6;
-          }
-          .rbc-toolbar button.rbc-active {
-            background-color: #3B82F6;
-            border-color: #3B82F6;
-            color: #FFFFFF;
-          }
-          .rbc-time-slot {
-            border-top: 1px solid #E5E7EB;
+          .rbc-header {
+            color: #000;
           }
           .rbc-time-view .rbc-header {
             border-bottom: 1px solid #E5E7EB;
-          }
-          /* Fix toolbar label contrast */
-          .rbc-toolbar-label {
-            color: #000 !important;
-            font-weight: 600;
           }
           /* Fix time labels contrast */
           .rbc-time-view .rbc-time-gutter .rbc-timeslot-group {
@@ -483,12 +459,6 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
           
           /* Mobile-specific styles */
           @media (max-width: 768px) {
-            .rbc-toolbar {
-              font-size: 14px;
-            }
-            .rbc-toolbar-label {
-              font-size: 14px;
-            }
             .rbc-header {
               padding: 6px 2px;
               font-size: 11px;
@@ -552,6 +522,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
           eventPropGetter={eventStyleGetter}
           messages={messages}
           culture="en-US"
+          toolbar={false}
           min={new Date(0, 0, 0, 8, 0, 0)}
           max={new Date(0, 0, 0, 20, 0, 0)}
           components={{
