@@ -38,7 +38,7 @@ const localizer = dateFnsLocalizer({
 
 export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, selectedMasters }: WeeklyCalendarPreviewProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [currentView, setCurrentView] = useState('week');
+  const [currentView, setCurrentView] = useState('work_week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [loading, setLoading] = useState(false);
   const [, setError] = useState<string | null>(null);
@@ -57,7 +57,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
 
   // Auto-switch to day view on mobile on initial load
   useEffect(() => {
-    if (isMobile && currentView === 'week') {
+    if (isMobile && currentView === 'work_week') {
       setCurrentView('day');
     }
   }, [isMobile]); // Only run when isMobile changes, not on every currentView change
@@ -341,7 +341,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
   };
 
   return (
-    <div className={`bg-white rounded-lg shadow-lg ${isMobile && currentView === 'week' ? 'p-1' : 'p-3 sm:p-6'}`}>
+    <div className={`bg-white rounded-lg shadow-lg ${isMobile && currentView === 'work_week' ? 'p-1' : 'p-3 sm:p-6'}`}>
       {/* Header Section - Responsive */}
       <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:justify-between sm:items-center">
         <h3 className="text-base sm:text-lg font-semibold text-gray-900">Calendar Preview</h3>
@@ -377,9 +377,9 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
               Day
             </button>
             <button
-              onClick={() => setCurrentView('week')}
+              onClick={() => setCurrentView('work_week')}
               className={`flex-1 sm:flex-none px-3 py-2 text-sm rounded-md ${
-                currentView === 'week'
+                currentView === 'work_week'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
@@ -413,7 +413,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
       </div>
 
       {/* Calendar Container - Responsive Height */}
-      <div className="calendar-container" style={{ height: isMobile ? '500px' : '600px' }}>
+      <div className="calendar-container" style={{ height: isMobile ? '520px' : '600px' }}>
         <style jsx global>{`
           .rbc-calendar {
             font-family: inherit;
@@ -513,16 +513,6 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
             .rbc-event {
               padding: 2px 3px !important;
             }
-            /* Hide Saturday and Sunday columns on mobile in week view only */
-            /* react-big-calendar uses Sunday=0, so Sun is col 1, Sat is col 7 */
-            .rbc-time-header .rbc-header-gutter + .rbc-header:nth-child(2),
-            .rbc-time-header .rbc-header-gutter + .rbc-header:nth-child(8),
-            .rbc-time-content > * > .rbc-day-slot:nth-child(1),
-            .rbc-time-content > * > .rbc-day-slot:nth-child(7) {
-              display: none !important;
-              width: 0 !important;
-              flex: 0 !important;
-            }
             /* Make agenda view more readable on mobile */
             .rbc-agenda-view {
               font-size: 14px;
@@ -544,7 +534,8 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
           startAccessor="start"
           endAccessor="end"
           style={{ height: '100%' }}
-          view={currentView as 'week' | 'month'}
+          views={['day', 'work_week', 'month', 'agenda']}
+          view={currentView as 'day' | 'work_week' | 'month' | 'agenda'}
           onView={setCurrentView}
           date={currentDate}
           onNavigate={setCurrentDate}
@@ -558,22 +549,11 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
               // Extract course name from title (e.g., "UM4IN814-DALAS-Cours" -> "DALAS")
               const titleParts = event.title.split('-');
               const courseName = titleParts.length > 1 ? titleParts[1].trim() : titleParts[0].trim();
-              const displayText = isMobile && currentView === 'week' ? courseName : event.title;
+              const displayText = isMobile && currentView === 'work_week' ? courseName : event.title;
               
               return (
-                <div className={isMobile && currentView === 'week' ? 'px-1' : 'truncate px-1'}>
-                  <div 
-                    className={`font-medium ${isMobile ? 'text-xs' : 'text-xs'}`}
-                    style={isMobile && currentView === 'week' ? { 
-                      whiteSpace: 'normal', 
-                      lineHeight: '1.3',
-                      wordBreak: 'break-word',
-                      overflow: 'hidden',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 3,
-                      WebkitBoxOrient: 'vertical'
-                    } : {}}
-                  >
+                <div className="px-1 truncate">
+                  <div className="font-medium text-xs">
                     {displayText}
                   </div>
                   {event.resource.group && !isMobile && (
