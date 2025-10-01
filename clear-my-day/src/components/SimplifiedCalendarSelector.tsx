@@ -21,45 +21,6 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [showUrlModal, setShowUrlModal] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState('');
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  // Load saved state from localStorage on mount (client-side only)
-  useEffect(() => {
-    // Check if we're in the browser before accessing localStorage
-    if (typeof window === 'undefined') {
-      setIsInitialized(true);
-      return;
-    }
-
-    const savedState = localStorage.getItem('clearMyDayState');
-    if (savedState) {
-      try {
-        const state = JSON.parse(savedState);
-        setMasterLevel(state.masterLevel || 'M1');
-        setSelectedMasters(state.selectedMasters || ['DAC']);
-        setSelectedCourses(state.selectedCourses || ['MLBDA']);
-        setCourseGroups(state.courseGroups || {});
-        setCalendarName(state.calendarName || 'My Sorbonne Calendar');
-      } catch (error) {
-        console.error('Failed to load saved state:', error);
-      }
-    }
-    setIsInitialized(true);
-  }, []); // Only run once on mount
-
-  // Save state to localStorage whenever it changes (after initialization, client-side only)
-  useEffect(() => {
-    if (!isInitialized || typeof window === 'undefined') return;
-    
-    const state = {
-      masterLevel,
-      selectedMasters,
-      selectedCourses,
-      courseGroups,
-      calendarName
-    };
-    localStorage.setItem('clearMyDayState', JSON.stringify(state));
-  }, [masterLevel, selectedMasters, selectedCourses, courseGroups, calendarName, isInitialized]);
 
   // Get available masters based on selected level
   const availableMasters = masterLevel === 'M1' ? getConfirmedM1Masters() : getConfirmedM2Masters();
@@ -70,11 +31,8 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
     return master ? master.courses : [];
   });
 
-  // Reset selections when master level changes (but not on initial load)
+  // Reset selections when master level changes
   useEffect(() => {
-    // Don't reset during initial load - let localStorage restoration complete
-    if (!isInitialized) return;
-    
     const firstMaster = Object.keys(availableMasters)[0];
     if (firstMaster) {
       setSelectedMasters([firstMaster]);
@@ -82,7 +40,7 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
       setSelectedCourses(firstMasterCourses.length > 0 ? [firstMasterCourses[0]] : []);
       setCourseGroups({});
     }
-  }, [masterLevel, isInitialized, availableMasters]);
+  }, [masterLevel]);
 
   // Update filter when selections change
   useEffect(() => {
