@@ -41,5 +41,6 @@ export function isCacheValid(cacheEntry: AnalyzeEventsCache): boolean {
   return new Date(cacheEntry.expires_at) > new Date();
 }
 
-// Cache TTL (4 hours)
-export const CACHE_TTL_HOURS = 4;
+// Cache TTL (3 months = 90 days * 24 hours)
+// Course groups are stable for entire semester
+export const CACHE_TTL_HOURS = 2160;
