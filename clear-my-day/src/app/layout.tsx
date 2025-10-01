@@ -17,6 +17,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ClearMyDay - Sorbonne Calendar Filter",
   description: "Generate personalized calendar subscriptions for Sorbonne University courses with TD/TME group filtering",
+  icons: {
+    icon: [
+      { url: '/logo.svg', type: 'image/svg+xml' },
+    ],
+    apple: '/logo.svg',
+  },
 };
 
 export default function RootLayout({

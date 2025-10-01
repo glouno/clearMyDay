@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { caldavClient } from '@/lib/caldav-client';
 import { SORBONNE_CALENDARS } from '@/lib/constants';
 import { CalendarEvent, CalendarFetchResult } from '@/lib/types';
-import { supabase, getCacheKey, isCacheValid, CACHE_TTL_HOURS, AnalyzeEventsCache } from '@/lib/supabase';
+import { supabase, isCacheValid, CACHE_TTL_HOURS } from '@/lib/supabase';
 
 interface EventAnalysis {
   summary: string;
@@ -21,6 +21,19 @@ interface CourseAnalysis {
     types: { [type: string]: number };
     groups: { td: string[]; tme: string[] };
   };
+}
+
+interface SourceAnalysisResult {
+  success: boolean;
+  error?: string;
+  summary?: {
+    totalEvents: number;
+    analyzedEvents: number;
+    coursesFound: number;
+    eventsByType: { [type: string]: number };
+  };
+  courseAnalysis?: CourseAnalysis;
+  topPatterns?: Array<{ pattern: string; count: number }>;
 }
 
 function analyzeEventSummary(summary: string): EventAnalysis {
@@ -91,205 +104,188 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Check cache first (if Supabase is available)
-    if (supabase) {
-      try {
-        const cacheKey = getCacheKey(validSources);
-        const { data: cachedData, error } = await supabase
-          .from('analyze_events_cache')
-          .select('*')
-          .eq('id', cacheKey)
-          .single();
-
-        if (!error && cachedData && isCacheValid(cachedData)) {
-          console.log(`✅ Cache hit for sources: ${validSources.join(', ')}`);
-          return NextResponse.json({
-            success: true,
-            data: cachedData.data,
-            cached: true,
-            timestamp: new Date().toISOString()
-          });
-        } else if (cachedData) {
-          console.log(`🗑️ Cache expired for sources: ${validSources.join(', ')}`);
-        } else {
-          console.log(`❌ Cache miss for sources: ${validSources.join(', ')}`);
-        }
-      } catch (cacheError) {
-        console.warn('Cache check failed:', cacheError);
-      }
-    }
-
-    // Fetch events from specified sources
-    const allEvents: CalendarEvent[] = [];
-    const results: { [source: string]: { success: boolean; error?: string; eventCount: number } } = {};
-
-    // Fetch from all sources with timeout protection
-    console.log(`Fetching events from sources: ${validSources.join(', ')}`);
+    // NEW STRATEGY: Check cache for each individual master
+    const cachedResults: { [source: string]: SourceAnalysisResult } = {};
+    const sourcesToFetch: string[] = [];
     
-    try {
-      // Add overall timeout for the entire operation (50 seconds max for production)
-      const fetchPromise = caldavClient.fetchAllCalendars(validSources);
-      const overallTimeout = process.env.NODE_ENV === 'production' ? 50000 : 35000;
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Overall fetch timeout')), overallTimeout)
-      );
-      
-      const fetchResults = await Promise.race([fetchPromise, timeoutPromise]) as Record<string, CalendarFetchResult>;
-      
-      // Process results
-      for (const [source, result] of Object.entries(fetchResults)) {
-        if (result.success) {
-          allEvents.push(...result.events);
-          results[source] = { success: true, eventCount: result.events.length };
-          console.log(`✅ ${source}: ${result.events.length} events`);
-        } else {
-          results[source] = { success: false, error: result.error, eventCount: 0 };
-          console.log(`❌ ${source}: ${result.error}`);
+    if (supabase) {
+      for (const source of validSources) {
+        try {
+          const cacheKey = `analyze-events-${source}`; // Individual cache key
+          const { data: cachedData, error } = await supabase
+            .from('analyze_events_cache')
+            .select('*')
+            .eq('id', cacheKey)
+            .single();
+
+          if (!error && cachedData && isCacheValid(cachedData)) {
+            console.log(`✅ Cache hit for ${source}`);
+            cachedResults[source] = cachedData.data;
+          } else {
+            console.log(`❌ Cache miss for ${source}`);
+            sourcesToFetch.push(source);
+          }
+        } catch (cacheError) {
+          console.warn(`Cache check failed for ${source}:`, cacheError);
+          sourcesToFetch.push(source);
         }
       }
-    } catch (error) {
-      console.log(`⚠️ Fetch operation timed out or failed: ${error}`);
-      // Mark all sources as failed but provide helpful error message
-      for (const source of validSources) {
-        results[source] = { 
-          success: false, 
-          error: 'Sorbonne servers are slow - this is normal. Try refreshing the page in a few seconds.', 
-          eventCount: 0 
-        };
-      }
-      
-      // Return partial success even if no events were fetched
-      // This allows the UI to show the error message instead of completely failing
-      return NextResponse.json({
-        success: false,
-        error: 'Calendar servers are temporarily slow. Please try again in a moment.',
-        data: {
-          summary: {
-            totalEvents: 0,
-            analyzedEvents: 0,
-            coursesFound: 0,
-            eventsByType: {
-              cours: 0, td: 0, tme: 0, exam: 0, soutenance: 0, rattrapage: 0, other: 0
-            }
-          },
-          courseAnalysis: {},
-          topPatterns: [],
-          sources: Object.entries(results).map(([source, result]) => ({
-            source,
-            ...result
-          }))
-        },
-        timestamp: new Date().toISOString()
-      });
+    } else {
+      sourcesToFetch.push(...validSources);
     }
 
-    // Analyze events
-    const courseAnalysis: CourseAnalysis = {};
-    const patternCounts = new Map<string, number>();
-    const eventAnalyses: EventAnalysis[] = [];
+    // Fetch events only from sources not in cache
+    const fetchedResults: { [source: string]: SourceAnalysisResult } = {};
+    
+    if (sourcesToFetch.length > 0) {
+      console.log(`Fetching events from sources: ${sourcesToFetch.join(', ')}`);
+      
+      try {
+        // Add overall timeout for the entire operation (50 seconds max for production)
+        const fetchPromise = caldavClient.fetchAllCalendars(sourcesToFetch);
+        const overallTimeout = process.env.NODE_ENV === 'production' ? 50000 : 35000;
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Overall fetch timeout')), overallTimeout)
+        );
+        
+        const fetchResults = await Promise.race([fetchPromise, timeoutPromise]) as Record<string, CalendarFetchResult>;
+        
+        // Process and analyze each source individually
+        for (const source of sourcesToFetch) {
+          const result = fetchResults[source];
+          if (result && result.success) {
+            const sourceAnalysis = await analyzeSourceEvents(source, result.events, courseFilter);
+            fetchedResults[source] = sourceAnalysis;
+            
+            // Cache this individual source result
+            if (supabase) {
+              try {
+                const cacheKey = `analyze-events-${source}`;
+                const expiresAt = new Date();
+                expiresAt.setHours(expiresAt.getHours() + CACHE_TTL_HOURS);
 
-    for (const event of allEvents) {
-      const analysis = analyzeEventSummary(event.summary);
-      
-      // Filter by course if specified
-      if (courseFilter && analysis.course !== courseFilter.toUpperCase()) {
-        continue;
-      }
-      
-      eventAnalyses.push(analysis);
-      
-      // Count patterns
-      const patternKey = analysis.summary.replace(/\d+/g, 'X'); // Replace numbers with X for pattern matching
-      patternCounts.set(patternKey, (patternCounts.get(patternKey) || 0) + 1);
-      
-      // Build course analysis
-      if (analysis.course) {
-        if (!courseAnalysis[analysis.course]) {
-          courseAnalysis[analysis.course] = {
-            totalEvents: 0,
-            types: {},
-            groups: { td: [], tme: [] }
+                await supabase
+                  .from('analyze_events_cache')
+                  .upsert({
+                    id: cacheKey,
+                    sources: [source], // Single source array
+                    data: sourceAnalysis,
+                    expires_at: expiresAt.toISOString()
+                  });
+
+                console.log(`💾 Cached results for ${source}`);
+              } catch (cacheError) {
+                console.warn(`Failed to cache results for ${source}:`, cacheError);
+              }
+            }
+          } else {
+            console.log(`❌ ${source}: ${result?.error || 'Unknown error'}`);
+            fetchedResults[source] = {
+              success: false,
+              error: result?.error || 'Unknown error',
+              courseAnalysis: {},
+              summary: { totalEvents: 0, analyzedEvents: 0, coursesFound: 0, eventsByType: {} }
+            };
+          }
+        }
+      } catch (error) {
+        console.log(`⚠️ Fetch operation timed out or failed: ${error}`);
+        for (const source of sourcesToFetch) {
+          fetchedResults[source] = {
+            success: false,
+            error: 'Sorbonne servers are slow - this is normal. Try refreshing the page in a few seconds.',
+            courseAnalysis: {},
+            summary: { totalEvents: 0, analyzedEvents: 0, coursesFound: 0, eventsByType: {} }
           };
         }
-        
-        const courseData = courseAnalysis[analysis.course];
-        courseData.totalEvents++;
-        courseData.types[analysis.type] = (courseData.types[analysis.type] || 0) + 1;
-        
-        // Collect unique groups
-        if (analysis.type === 'td' && analysis.group && !courseData.groups.td.includes(analysis.group)) {
-          courseData.groups.td.push(analysis.group);
-        }
-        if (analysis.type === 'tme' && analysis.group && !courseData.groups.tme.includes(analysis.group)) {
-          courseData.groups.tme.push(analysis.group);
-        }
       }
     }
 
-    // Sort groups numerically
-    Object.values(courseAnalysis).forEach(course => {
-      course.groups.td.sort((a, b) => parseInt(a) - parseInt(b));
-      course.groups.tme.sort((a, b) => parseInt(a) - parseInt(b));
-    });
-
-    // Convert pattern counts to array and sort
-    const topPatterns = Array.from(patternCounts.entries())
+    // Combine cached and fetched results
+    const allSourceResults = { ...cachedResults, ...fetchedResults };
+    
+    // Merge all course analyses from different sources
+    const combinedCourseAnalysis: CourseAnalysis = {};
+    const combinedPatterns = new Map<string, number>();
+    let totalEvents = 0;
+    let totalAnalyzed = 0;
+    const eventsByType = {
+      cours: 0, td: 0, tme: 0, exam: 0, soutenance: 0, rattrapage: 0, other: 0
+    };
+    
+    const sourceResults: Array<{
+      source: string;
+      success: boolean;
+      error?: string;
+      eventCount: number;
+    }> = [];
+    
+    for (const [source, sourceData] of Object.entries(allSourceResults)) {
+      if (sourceData.success !== false) {
+        // Merge course analysis
+        if (sourceData.courseAnalysis) {
+          Object.assign(combinedCourseAnalysis, sourceData.courseAnalysis);
+        }
+        
+        // Merge patterns
+        if (sourceData.topPatterns) {
+          sourceData.topPatterns.forEach((p: { pattern: string; count: number }) => {
+            combinedPatterns.set(p.pattern, (combinedPatterns.get(p.pattern) || 0) + p.count);
+          });
+        }
+        
+        // Merge summary stats
+        if (sourceData.summary) {
+          totalEvents += sourceData.summary.totalEvents || 0;
+          totalAnalyzed += sourceData.summary.analyzedEvents || 0;
+          
+          if (sourceData.summary.eventsByType) {
+            Object.keys(eventsByType).forEach(type => {
+              const eventCount = sourceData.summary?.eventsByType?.[type] || 0;
+              eventsByType[type as keyof typeof eventsByType] += eventCount;
+            });
+          }
+        }
+        
+        sourceResults.push({
+          source,
+          success: true,
+          eventCount: sourceData.summary?.totalEvents || 0
+        });
+      } else {
+        sourceResults.push({
+          source,
+          success: false,
+          error: sourceData.error || 'Unknown error',
+          eventCount: 0
+        });
+      }
+    }
+    
+    // Convert combined patterns to sorted array
+    const topPatterns = Array.from(combinedPatterns.entries())
       .sort(([, a], [, b]) => b - a)
       .slice(0, 20)
       .map(([pattern, count]) => ({ pattern, count }));
-
-    // Determine if we have any successful results
-    const hasSuccessfulResults = Object.values(results).some(r => r.success);
-
+    
+    const hasSuccessfulResults = sourceResults.some(r => r.success);
+    
     const responseData = {
       summary: {
-        totalEvents: allEvents.length,
-        analyzedEvents: eventAnalyses.length,
-        coursesFound: Object.keys(courseAnalysis).length,
-        eventsByType: {
-          cours: eventAnalyses.filter(e => e.type === 'cours').length,
-          td: eventAnalyses.filter(e => e.type === 'td').length,
-          tme: eventAnalyses.filter(e => e.type === 'tme').length,
-          exam: eventAnalyses.filter(e => e.type === 'exam').length,
-          soutenance: eventAnalyses.filter(e => e.type === 'soutenance').length,
-          rattrapage: eventAnalyses.filter(e => e.type === 'rattrapage').length,
-          other: eventAnalyses.filter(e => e.type === 'other').length
-        }
+        totalEvents,
+        analyzedEvents: totalAnalyzed,
+        coursesFound: Object.keys(combinedCourseAnalysis).length,
+        eventsByType
       },
-      courseAnalysis,
+      courseAnalysis: combinedCourseAnalysis,
       topPatterns,
-      sources: Object.entries(results).map(([source, result]) => ({
-        source,
-        ...result
-      }))
+      sources: sourceResults
     };
 
-    // Cache the results if successful and Supabase is available
-    if (hasSuccessfulResults && supabase && allEvents.length > 0) {
-      try {
-        const cacheKey = getCacheKey(validSources);
-        const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + CACHE_TTL_HOURS);
-
-        await supabase
-          .from('analyze_events_cache')
-          .upsert({
-            id: cacheKey,
-            sources: validSources,
-            data: responseData,
-            expires_at: expiresAt.toISOString()
-          });
-
-        console.log(`💾 Cached results for sources: ${validSources.join(', ')}`);
-      } catch (cacheError) {
-        console.warn('Failed to cache results:', cacheError);
-      }
-    }
-
     return NextResponse.json({
-      success: hasSuccessfulResults, // Success if at least one source worked
+      success: hasSuccessfulResults,
       data: responseData,
-      cached: false,
+      cached: Object.keys(cachedResults).length > 0,
       timestamp: new Date().toISOString()
     });
 
@@ -301,4 +297,81 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString()
     }, { status: 500 });
   }
+}
+
+// Helper function to analyze events from a single source
+async function analyzeSourceEvents(source: string, events: CalendarEvent[], courseFilter?: string | null) {
+  const courseAnalysis: CourseAnalysis = {};
+  const patternCounts = new Map<string, number>();
+  const eventAnalyses: EventAnalysis[] = [];
+
+  for (const event of events) {
+    const analysis = analyzeEventSummary(event.summary);
+    
+    // Filter by course if specified
+    if (courseFilter && analysis.course !== courseFilter.toUpperCase()) {
+      continue;
+    }
+    
+    eventAnalyses.push(analysis);
+    
+    // Count patterns
+    const patternKey = analysis.summary.replace(/\d+/g, 'X');
+    patternCounts.set(patternKey, (patternCounts.get(patternKey) || 0) + 1);
+    
+    // Build course analysis
+    if (analysis.course) {
+      if (!courseAnalysis[analysis.course]) {
+        courseAnalysis[analysis.course] = {
+          totalEvents: 0,
+          types: {},
+          groups: { td: [], tme: [] }
+        };
+      }
+      
+      const courseData = courseAnalysis[analysis.course];
+      courseData.totalEvents++;
+      courseData.types[analysis.type] = (courseData.types[analysis.type] || 0) + 1;
+      
+      // Collect unique groups
+      if (analysis.type === 'td' && analysis.group && !courseData.groups.td.includes(analysis.group)) {
+        courseData.groups.td.push(analysis.group);
+      }
+      if (analysis.type === 'tme' && analysis.group && !courseData.groups.tme.includes(analysis.group)) {
+        courseData.groups.tme.push(analysis.group);
+      }
+    }
+  }
+
+  // Sort groups numerically
+  Object.values(courseAnalysis).forEach(course => {
+    course.groups.td.sort((a, b) => parseInt(a) - parseInt(b));
+    course.groups.tme.sort((a, b) => parseInt(a) - parseInt(b));
+  });
+
+  // Convert pattern counts to array and sort
+  const topPatterns = Array.from(patternCounts.entries())
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 20)
+    .map(([pattern, count]) => ({ pattern, count }));
+
+  return {
+    success: true,
+    summary: {
+      totalEvents: events.length,
+      analyzedEvents: eventAnalyses.length,
+      coursesFound: Object.keys(courseAnalysis).length,
+      eventsByType: {
+        cours: eventAnalyses.filter(e => e.type === 'cours').length,
+        td: eventAnalyses.filter(e => e.type === 'td').length,
+        tme: eventAnalyses.filter(e => e.type === 'tme').length,
+        exam: eventAnalyses.filter(e => e.type === 'exam').length,
+        soutenance: eventAnalyses.filter(e => e.type === 'soutenance').length,
+        rattrapage: eventAnalyses.filter(e => e.type === 'rattrapage').length,
+        other: eventAnalyses.filter(e => e.type === 'other').length
+      }
+    },
+    courseAnalysis,
+    topPatterns
+  };
 }
