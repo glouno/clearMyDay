@@ -23,8 +23,14 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
   const [generatedUrl, setGeneratedUrl] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Load saved state from localStorage on mount
+  // Load saved state from localStorage on mount (client-side only)
   useEffect(() => {
+    // Check if we're in the browser before accessing localStorage
+    if (typeof window === 'undefined') {
+      setIsInitialized(true);
+      return;
+    }
+
     const savedState = localStorage.getItem('clearMyDayState');
     if (savedState) {
       try {
@@ -41,9 +47,9 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
     setIsInitialized(true);
   }, []); // Only run once on mount
 
-  // Save state to localStorage whenever it changes (after initialization)
+  // Save state to localStorage whenever it changes (after initialization, client-side only)
   useEffect(() => {
-    if (!isInitialized) return; // Don't save during initial load
+    if (!isInitialized || typeof window === 'undefined') return;
     
     const state = {
       masterLevel,
