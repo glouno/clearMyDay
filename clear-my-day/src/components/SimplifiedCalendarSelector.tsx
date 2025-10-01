@@ -70,8 +70,11 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
     return master ? master.courses : [];
   });
 
-  // Reset selections when master level changes
+  // Reset selections when master level changes (but not on initial load)
   useEffect(() => {
+    // Don't reset during initial load - let localStorage restoration complete
+    if (!isInitialized) return;
+    
     const firstMaster = Object.keys(availableMasters)[0];
     if (firstMaster) {
       setSelectedMasters([firstMaster]);
@@ -79,7 +82,7 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
       setSelectedCourses(firstMasterCourses.length > 0 ? [firstMasterCourses[0]] : []);
       setCourseGroups({});
     }
-  }, [masterLevel]);
+  }, [masterLevel, isInitialized, availableMasters]);
 
   // Update filter when selections change
   useEffect(() => {
