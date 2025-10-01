@@ -499,13 +499,15 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
             color: #000 !important;
           }
           
-          /* Hide all-day event row when empty (reduces gap) */
+          /* Completely hide all-day event row to eliminate gap */
           .rbc-time-view .rbc-allday-cell {
-            min-height: 0 !important;
-            height: auto !important;
+            display: none !important;
           }
           .rbc-time-header-content {
-            min-height: 0 !important;
+            border-bottom: none !important;
+          }
+          .rbc-time-header {
+            border-bottom: 1px solid #E5E7EB !important;
           }
           
           /* Mobile-specific styles */
