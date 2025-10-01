@@ -19,6 +19,8 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
   const [calendarName, setCalendarName] = useState<string>('My Sorbonne Calendar');
   const [availableGroups, setAvailableGroups] = useState<{[courseId: string]: string[]}>({});
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+  const [showUrlModal, setShowUrlModal] = useState(false);
+  const [generatedUrl, setGeneratedUrl] = useState('');
 
   // Get available masters based on selected level
   const availableMasters = masterLevel === 'M1' ? getConfirmedM1Masters() : getConfirmedM2Masters();
@@ -176,8 +178,9 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
 
       const data = await response.json();
       if (data.success) {
-        // Show success message with subscription URL
-        alert(`Calendar generated successfully!\n\nSubscription URL:\n${data.data.subscriptionUrl}\n\nYou can add this URL to your calendar app.`);
+        // Show modal with subscription URL and copy button
+        setGeneratedUrl(data.data.subscriptionUrl);
+        setShowUrlModal(true);
       } else {
         alert('Failed to generate calendar: ' + data.error);
       }
@@ -276,7 +279,7 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
                     onChange={(e) => updateCourseGroup(courseId, e.target.value)}
                     className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white flex-1 sm:flex-none"
                   >
-                    <option value="">Select Group</option>
+                    <option value="">All Groups</option>
                     {availableGroups[courseId]?.map(group => (
                       <option key={group} value={group}>Group {group}</option>
                     ))}
@@ -303,6 +306,38 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
           </button>
         </div>
       </div>
+
+      {/* URL Modal */}
+      {showUrlModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Calendar Generated Successfully! 🎉</h3>
+            <p className="text-sm text-gray-600 mb-4">Copy the URL below and add it to your calendar app:</p>
+            
+            <div className="bg-gray-50 border border-gray-200 rounded-md p-3 mb-4">
+              <p className="text-sm text-gray-800 break-all font-mono">{generatedUrl}</p>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(generatedUrl);
+                  alert('URL copied to clipboard!');
+                }}
+                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium"
+              >
+                📋 Copy URL
+              </button>
+              <button
+                onClick={() => setShowUrlModal(false)}
+                className="flex-1 bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

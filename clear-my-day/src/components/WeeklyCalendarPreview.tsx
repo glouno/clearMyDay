@@ -354,7 +354,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
               disabled={loading || selectedCourses.length === 0}
               className="flex-1 sm:flex-none bg-blue-600 text-white px-3 sm:px-4 py-2 text-sm rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Loading...' : 'Load Calendar'}
+              {loading ? 'Loading...' : (events.length > 0 ? 'Refresh Calendar' : 'Load Calendar')}
             </button>
             <button
               onClick={goToToday}
@@ -589,22 +589,6 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
           </div>
         </div>
 
-        {/* Event Statistics */}
-        {events.length > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-            <div className="text-sm font-medium text-blue-800">
-              Calendar Statistics
-            </div>
-            <div className="text-sm text-blue-700 mt-1">
-              Total Events: {events.length} | 
-              Recurring Events: {events.filter(e => e.title.includes('(R)')).length} | 
-              One-time Events: {events.filter(e => !e.title.includes('(R)')).length}
-            </div>
-            <div className="text-xs text-blue-600 mt-1">
-              Events marked with (R) are recurring occurrences expanded from RRULE
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
