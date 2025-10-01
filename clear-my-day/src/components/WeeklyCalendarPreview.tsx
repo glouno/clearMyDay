@@ -479,11 +479,10 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
             border-bottom: 1px solid #E5E7EB;
           }
           .rbc-today {
+            background-color: #DBEAFE !important;
+          }
           .rbc-off-range-bg {
             background-color: #F9FAFB;
-          }
-          .rbc-header {
-            color: #000;
           }
           .rbc-time-view .rbc-header {
             border-bottom: 1px solid #E5E7EB;
