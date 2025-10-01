@@ -11,6 +11,7 @@ interface WeeklyCalendarPreviewProps {
   courseGroups: { [courseId: string]: string };
   selectedCourses: string[];
   selectedMasters: ('DAC' | 'IMA' | 'ANDROIDE')[];
+  autoLoad?: boolean;
 }
 
 interface CalendarEvent {
@@ -36,13 +37,14 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
-export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, selectedMasters }: WeeklyCalendarPreviewProps) {
+export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, selectedMasters, autoLoad = false }: WeeklyCalendarPreviewProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [currentView, setCurrentView] = useState('work_week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [loading, setLoading] = useState(false);
   const [, setError] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [hasAutoLoaded, setHasAutoLoaded] = useState(false);
 
   // Detect mobile screen size
   useEffect(() => {
@@ -66,6 +68,14 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
   const goToToday = () => {
     setCurrentDate(new Date());
   };
+
+  // Auto-load calendar when component mounts if autoLoad is true
+  useEffect(() => {
+    if (autoLoad && !hasAutoLoaded && selectedCourses.length > 0 && selectedMasters.length > 0) {
+      setHasAutoLoaded(true);
+      fetchEvents();
+    }
+  }, [autoLoad]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchEvents = async () => {
     if (selectedCourses.length === 0 || selectedMasters.length === 0) {

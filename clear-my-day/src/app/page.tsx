@@ -43,6 +43,7 @@ export default function Home() {
               courseGroups={courseGroups}
               selectedCourses={selectedCourses}
               selectedMasters={selectedMasters}
+              autoLoad={true}
             />
           )}
         </div>
