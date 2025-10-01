@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale';
@@ -39,10 +39,28 @@ const localizer = dateFnsLocalizer({
 export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, selectedMasters }: WeeklyCalendarPreviewProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [currentView, setCurrentView] = useState('week');
-  // Start with today's date for better UX
   const [currentDate, setCurrentDate] = useState(new Date());
   const [loading, setLoading] = useState(false);
   const [, setError] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768); // Tailwind's md breakpoint
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Auto-switch to day view on mobile
+  useEffect(() => {
+    if (isMobile && currentView === 'week') {
+      setCurrentView('day');
+    }
+  }, [isMobile, currentView]);
 
   // Function to navigate to today
   const goToToday = () => {
@@ -323,41 +341,69 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Weekly Calendar Preview</h3>
-        <div className="flex gap-2">
-          <button
-            onClick={fetchEvents}
-            disabled={loading || selectedCourses.length === 0}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Loading...' : 'Load Calendar'}
-          </button>
-          <button
-            onClick={goToToday}
-            className="bg-green-600 text-white px-3 py-2 text-sm rounded-md hover:bg-green-700"
-          >
-            Today
-          </button>
-          <div className="flex gap-1">
+    <div className="bg-white rounded-lg shadow-lg p-3 sm:p-6">
+      {/* Header Section - Responsive */}
+      <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:justify-between sm:items-center">
+        <h3 className="text-base sm:text-lg font-semibold text-gray-900">Calendar Preview</h3>
+        
+        {/* Mobile: Stack buttons vertically */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
+          <div className="flex gap-2">
             <button
-              onClick={() => setCurrentView('week')}
-              className={`px-3 py-2 text-sm rounded-md ${currentView === 'week' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              onClick={fetchEvents}
+              disabled={loading || selectedCourses.length === 0}
+              className="flex-1 sm:flex-none bg-blue-600 text-white px-3 sm:px-4 py-2 text-sm rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Week
+              {loading ? 'Loading...' : 'Load Calendar'}
             </button>
             <button
-              onClick={() => setCurrentView('month')}
-              className={`px-3 py-2 text-sm rounded-md ${currentView === 'month' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              onClick={goToToday}
+              className="bg-green-600 text-white px-3 py-2 text-sm rounded-md hover:bg-green-700"
             >
-              Month
+              Today
+            </button>
+          </div>
+          
+          {/* View Switcher */}
+          <div className="flex gap-1">
+            <button
+              onClick={() => setCurrentView(isMobile ? 'day' : 'week')}
+              className={`flex-1 sm:flex-none px-3 py-2 text-sm rounded-md ${
+                currentView === 'week' || currentView === 'day'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {isMobile ? 'Day' : 'Week'}
+            </button>
+            {!isMobile && (
+              <button
+                onClick={() => setCurrentView('month')}
+                className={`px-3 py-2 text-sm rounded-md ${
+                  currentView === 'month'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Month
+              </button>
+            )}
+            <button
+              onClick={() => setCurrentView('agenda')}
+              className={`flex-1 sm:flex-none px-3 py-2 text-sm rounded-md ${
+                currentView === 'agenda'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Agenda
             </button>
           </div>
         </div>
       </div>
 
-      <div className="calendar-container" style={{ height: '600px' }}>
+      {/* Calendar Container - Responsive Height */}
+      <div className="calendar-container" style={{ height: isMobile ? '500px' : '600px' }}>
         <style jsx global>{`
           .rbc-calendar {
             font-family: inherit;
@@ -413,6 +459,39 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
           /* Fix header text */
           .rbc-header {
             color: #000 !important;
+          }
+          
+          /* Mobile-specific styles */
+          @media (max-width: 768px) {
+            .rbc-toolbar {
+              font-size: 14px;
+            }
+            .rbc-toolbar-label {
+              font-size: 14px;
+            }
+            .rbc-header {
+              padding: 6px 2px;
+              font-size: 12px;
+            }
+            .rbc-time-view .rbc-label {
+              font-size: 11px;
+            }
+            .rbc-time-slot {
+              min-height: 30px;
+            }
+            /* Make agenda view more readable on mobile */
+            .rbc-agenda-view {
+              font-size: 14px;
+            }
+            .rbc-agenda-view .rbc-agenda-date-cell {
+              padding: 8px 4px;
+            }
+            .rbc-agenda-view .rbc-agenda-time-cell {
+              padding: 8px 4px;
+            }
+            .rbc-agenda-view .rbc-agenda-event-cell {
+              padding: 8px 4px;
+            }
           }
         `}</style>
         <Calendar
