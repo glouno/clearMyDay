@@ -309,8 +309,8 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
 
       {/* URL Modal */}
       {showUrlModal && (
-        <div className="fixed inset-0 bg-white/40 backdrop-blur-xl flex items-center justify-center z-50 p-4 transition-all duration-300">
-          <div className="bg-white/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/20 max-w-2xl w-full p-6 sm:p-8">
+        <div className="fixed inset-0 bg-white/40 backdrop-blur-xl flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/20 max-w-2xl w-full p-6 sm:p-8 animate-scale-up">
             <h3 className="text-xl font-semibold text-gray-900 mb-3">Calendar Generated Successfully! 🎉</h3>
             <p className="text-sm text-gray-600 mb-4">Copy the URL below and add it to your calendar app:</p>
             
