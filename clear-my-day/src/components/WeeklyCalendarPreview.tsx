@@ -498,12 +498,14 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
             .rbc-time-view .rbc-allday-cell {
               display: none;
             }
+            /* Only apply to week view, not day view */
+            .rbc-time-view.rbc-day-view .rbc-event-content {
+              white-space: normal !important;
+            }
             .rbc-event-content {
               font-size: 10px !important;
               padding: 2px 3px !important;
               line-height: 1.2 !important;
-              white-space: normal !important;
-              overflow: visible !important;
             }
             .rbc-event-label {
               font-size: 9px !important;
@@ -511,17 +513,15 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
             .rbc-event {
               padding: 2px 3px !important;
             }
-            /* Hide Saturday and Sunday columns completely on mobile */
-            /* Target both header and content for first (Sun) and last (Sat) columns */
-            .rbc-time-header-content .rbc-header:first-child,
-            .rbc-time-header-content .rbc-header:last-child,
-            .rbc-time-content .rbc-day-slot:first-child,
-            .rbc-time-content .rbc-day-slot:last-child,
-            .rbc-time-header-content > div:first-child,
-            .rbc-time-header-content > div:last-child {
+            /* Hide Saturday and Sunday columns on mobile in week view only */
+            /* react-big-calendar uses Sunday=0, so Sun is col 1, Sat is col 7 */
+            .rbc-time-header .rbc-header-gutter + .rbc-header:nth-child(2),
+            .rbc-time-header .rbc-header-gutter + .rbc-header:nth-child(8),
+            .rbc-time-content > * > .rbc-day-slot:nth-child(1),
+            .rbc-time-content > * > .rbc-day-slot:nth-child(7) {
               display: none !important;
               width: 0 !important;
-              min-width: 0 !important;
+              flex: 0 !important;
             }
             /* Make agenda view more readable on mobile */
             .rbc-agenda-view {
@@ -554,29 +554,36 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
           min={new Date(0, 0, 0, 8, 0, 0)}
           max={new Date(0, 0, 0, 20, 0, 0)}
           components={{
-            event: ({ event }: { event: CalendarEvent }) => (
-              <div className={isMobile && currentView === 'week' ? 'px-1' : 'truncate px-1'}>
-                <div 
-                  className={`font-medium ${isMobile ? 'text-xs' : 'text-xs'}`}
-                  style={isMobile && currentView === 'week' ? { 
-                    whiteSpace: 'normal', 
-                    lineHeight: '1.2',
-                    wordBreak: 'break-word',
-                    overflow: 'hidden'
-                  } : {}}
-                >
-                  {isMobile && currentView === 'week' 
-                    ? event.title.split('-')[0].trim()
-                    : event.title
-                  }
-                </div>
-                {event.resource.group && !isMobile && (
-                  <div className="text-xs opacity-90">
-                    {event.resource.type.toUpperCase()} {event.resource.group}
+            event: ({ event }: { event: CalendarEvent }) => {
+              // Extract course name from title (e.g., "UM4IN814-DALAS-Cours" -> "DALAS")
+              const titleParts = event.title.split('-');
+              const courseName = titleParts.length > 1 ? titleParts[1].trim() : titleParts[0].trim();
+              const displayText = isMobile && currentView === 'week' ? courseName : event.title;
+              
+              return (
+                <div className={isMobile && currentView === 'week' ? 'px-1' : 'truncate px-1'}>
+                  <div 
+                    className={`font-medium ${isMobile ? 'text-xs' : 'text-xs'}`}
+                    style={isMobile && currentView === 'week' ? { 
+                      whiteSpace: 'normal', 
+                      lineHeight: '1.3',
+                      wordBreak: 'break-word',
+                      overflow: 'hidden',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: 'vertical'
+                    } : {}}
+                  >
+                    {displayText}
                   </div>
-                )}
-              </div>
-            )
+                  {event.resource.group && !isMobile && (
+                    <div className="text-xs opacity-90">
+                      {event.resource.type.toUpperCase()} {event.resource.group}
+                    </div>
+                  )}
+                </div>
+              );
+            }
           }}
         />
       </div>
