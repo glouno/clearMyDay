@@ -505,10 +505,11 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
               font-size: 9px !important;
             }
             /* Hide Saturday and Sunday on mobile in week view */
-            .rbc-time-view .rbc-day-slot:nth-child(7),
-            .rbc-time-view .rbc-day-slot:nth-child(8),
-            .rbc-time-header-content > div > div:nth-child(7),
-            .rbc-time-header-content > div > div:nth-child(8) {
+            /* Sunday is first column (1), Saturday is last column (7) */
+            .rbc-time-view .rbc-time-content > .rbc-day-slot:first-child,
+            .rbc-time-view .rbc-time-content > .rbc-day-slot:last-child,
+            .rbc-time-header .rbc-header:first-child,
+            .rbc-time-header .rbc-header:last-child {
               display: none !important;
             }
             /* Make agenda view more readable on mobile */
@@ -539,8 +540,8 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
           eventPropGetter={eventStyleGetter}
           messages={messages}
           culture="en-US"
-          min={new Date(2024, 0, 1, 8, 0, 0)}
-          max={new Date(2024, 0, 1, 20, 0, 0)}
+          min={new Date(0, 0, 0, 8, 0, 0)}
+          max={new Date(0, 0, 0, 20, 0, 0)}
           components={{
             event: ({ event }: { event: CalendarEvent }) => (
               <div className="truncate px-1">
