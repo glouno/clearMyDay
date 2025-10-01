@@ -2,9 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { FilterConfig } from '@/lib/types';
-// import { SORBONNE_CALENDARS } from '@/lib/constants'; // Not needed in simplified version
 import { getConfirmedM1Masters, getConfirmedM2Masters } from '@/lib/sorbonne-masters';
-import FilteredEventsPreview from './FilteredEventsPreview';
 import MasterLevelSelector, { MasterLevel } from './MasterLevelSelector';
 
 interface SimplifiedCalendarSelectorProps {
@@ -21,7 +19,6 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
   const [calendarName, setCalendarName] = useState<string>('My Sorbonne Calendar');
   const [availableGroups, setAvailableGroups] = useState<{[courseId: string]: string[]}>({});
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
 
   // Get available masters based on selected level
   const availableMasters = masterLevel === 'M1' ? getConfirmedM1Masters() : getConfirmedM2Masters();
@@ -218,20 +215,20 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
         />
 
         {/* Master Programs Selection */}
-        <div className="mb-4 sm:mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Programs ({masterLevel})
+        <div className="mb-6 sm:mb-8">
+          <label className="block text-base sm:text-lg font-semibold text-gray-900 mb-3">
+            Master Programs ({masterLevel})
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+          <div className="flex flex-wrap gap-3">
             {Object.entries(availableMasters).map(([masterId, master]) => (
-              <label key={masterId} className="flex items-center p-2 border rounded-md hover:bg-gray-50">
+              <label key={masterId} className="flex items-center cursor-pointer">
                 <input
                   type="checkbox"
                   checked={selectedMasters.includes(masterId)}
                   onChange={(e) => handleMasterChange(masterId, e.target.checked)}
-                  className="mr-2 flex-shrink-0"
+                  className="mr-2 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
-                <span className="text-xs sm:text-sm text-gray-700 truncate" title={master.name}>
+                <span className="text-sm sm:text-base text-gray-700 font-medium" title={master.name}>
                   {masterId}
                 </span>
               </label>
@@ -240,20 +237,20 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
         </div>
 
         {/* Course Selection */}
-        <div className="mb-4 sm:mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="mb-6 sm:mb-8 pb-6 border-b border-gray-200">
+          <label className="block text-sm font-medium text-gray-600 mb-3">
             Courses
           </label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+          <div className="flex flex-wrap gap-3">
             {availableCourses.map(course => (
-              <label key={course} className="flex items-center p-2 border rounded-md hover:bg-gray-50">
+              <label key={course} className="flex items-center cursor-pointer">
                 <input
                   type="checkbox"
                   checked={selectedCourses.includes(course)}
                   onChange={(e) => handleCourseChange(course, e.target.checked)}
-                  className="mr-2 flex-shrink-0"
+                  className="mr-2 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
-                <span className="text-xs sm:text-sm text-gray-700 truncate">{course}</span>
+                <span className="text-sm text-gray-700">{course}</span>
               </label>
             ))}
           </div>
@@ -270,9 +267,9 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
               )}
             </div>
-            <div className="space-y-2 sm:space-y-3">
+            <div className="space-y-3">
               {selectedCourses.map(courseId => (
-                <div key={courseId} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-2 border rounded-md">
+                <div key={courseId} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 bg-gray-50 p-3 rounded-md">
                   <span className="text-sm font-medium text-gray-700 sm:w-20">{courseId}:</span>
                   <select
                     value={courseGroups[courseId] || ''}
@@ -298,24 +295,6 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
           <button
-            onClick={() => {
-              setShowPreview(true);
-              setTimeout(() => {
-                const previewSection = document.getElementById('filtered-events-preview');
-                if (previewSection) {
-                  previewSection.scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'start' 
-                  });
-                }
-              }, 100);
-            }}
-            disabled={loading || selectedCourses.length === 0}
-            className="w-full sm:w-auto bg-blue-600 text-white px-4 sm:px-6 py-3 sm:py-2 text-sm sm:text-base rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-          >
-            {loading ? 'Loading...' : 'Preview'}
-          </button>
-          <button
             onClick={generateCalendar}
             disabled={selectedCourses.length === 0}
             className="w-full sm:w-auto bg-green-600 text-white px-4 sm:px-6 py-3 sm:py-2 text-sm sm:text-base rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
@@ -324,17 +303,6 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
           </button>
         </div>
       </div>
-
-      {/* Filtered Events Preview */}
-      {showPreview && (
-        <div id="filtered-events-preview">
-          <FilteredEventsPreview
-            courseGroups={courseGroups}
-            selectedCourses={selectedCourses}
-            selectedMasters={selectedMasters as ('DAC' | 'IMA' | 'ANDROIDE')[]}
-          />
-        </div>
-      )}
     </div>
   );
 }
