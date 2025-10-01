@@ -55,12 +55,12 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Auto-switch to day view on mobile
+  // Auto-switch to day view on mobile on initial load
   useEffect(() => {
     if (isMobile && currentView === 'week') {
       setCurrentView('day');
     }
-  }, [isMobile, currentView]);
+  }, [isMobile]); // Only run when isMobile changes, not on every currentView change
 
   // Function to navigate to today
   const goToToday = () => {
@@ -341,7 +341,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-3 sm:p-6">
+    <div className={`bg-white rounded-lg shadow-lg ${isMobile && currentView === 'week' ? 'p-1' : 'p-3 sm:p-6'}`}>
       {/* Header Section - Responsive */}
       <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:justify-between sm:items-center">
         <h3 className="text-base sm:text-lg font-semibold text-gray-900">Calendar Preview</h3>
@@ -367,14 +367,24 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
           {/* View Switcher */}
           <div className="flex gap-1">
             <button
-              onClick={() => setCurrentView(isMobile ? 'day' : 'week')}
+              onClick={() => setCurrentView('day')}
               className={`flex-1 sm:flex-none px-3 py-2 text-sm rounded-md ${
-                currentView === 'week' || currentView === 'day'
+                currentView === 'day'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              {isMobile ? 'Day' : 'Week'}
+              Day
+            </button>
+            <button
+              onClick={() => setCurrentView('week')}
+              className={`flex-1 sm:flex-none px-3 py-2 text-sm rounded-md ${
+                currentView === 'week'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Week
             </button>
             {!isMobile && (
               <button
@@ -396,7 +406,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              Agenda
+              List
             </button>
           </div>
         </div>
@@ -471,13 +481,35 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
             }
             .rbc-header {
               padding: 6px 2px;
-              font-size: 12px;
+              font-size: 11px;
             }
             .rbc-time-view .rbc-label {
-              font-size: 11px;
+              font-size: 10px;
             }
             .rbc-time-slot {
               min-height: 30px;
+            }
+            /* Compact week view on mobile */
+            .rbc-time-view .rbc-time-gutter {
+              width: 35px !important;
+              min-width: 35px !important;
+            }
+            .rbc-time-view .rbc-allday-cell {
+              display: none;
+            }
+            .rbc-event-content {
+              font-size: 10px !important;
+              padding: 1px 2px !important;
+            }
+            .rbc-event-label {
+              font-size: 9px !important;
+            }
+            /* Hide Saturday and Sunday on mobile in week view */
+            .rbc-time-view .rbc-day-slot:nth-child(7),
+            .rbc-time-view .rbc-day-slot:nth-child(8),
+            .rbc-time-header-content > div > div:nth-child(7),
+            .rbc-time-header-content > div > div:nth-child(8) {
+              display: none !important;
             }
             /* Make agenda view more readable on mobile */
             .rbc-agenda-view {
@@ -507,11 +539,18 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
           eventPropGetter={eventStyleGetter}
           messages={messages}
           culture="en-US"
+          min={new Date(2024, 0, 1, 8, 0, 0)}
+          max={new Date(2024, 0, 1, 20, 0, 0)}
           components={{
             event: ({ event }: { event: CalendarEvent }) => (
               <div className="truncate px-1">
-                <div className="font-medium text-xs">{event.title}</div>
-                {event.resource.group && (
+                <div className={`font-medium ${isMobile ? 'text-xs' : 'text-xs'}`}>
+                  {isMobile && currentView === 'week' 
+                    ? event.title.split('-')[0].trim().substring(0, 15)
+                    : event.title
+                  }
+                </div>
+                {event.resource.group && !isMobile && (
                   <div className="text-xs opacity-90">
                     {event.resource.type.toUpperCase()} {event.resource.group}
                   </div>
