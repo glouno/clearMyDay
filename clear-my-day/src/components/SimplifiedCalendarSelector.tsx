@@ -309,28 +309,28 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
 
       {/* URL Modal */}
       {showUrlModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity duration-200">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Calendar Generated Successfully! 🎉</h3>
+        <div className="fixed inset-0 bg-white/40 backdrop-blur-xl flex items-center justify-center z-50 p-4 transition-all duration-300">
+          <div className="bg-white/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/20 max-w-2xl w-full p-6 sm:p-8">
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">Calendar Generated Successfully! 🎉</h3>
             <p className="text-sm text-gray-600 mb-4">Copy the URL below and add it to your calendar app:</p>
             
-            <div className="bg-gray-50 border border-gray-200 rounded-md p-3 mb-4">
-              <p className="text-sm text-gray-800 break-all font-mono">{generatedUrl}</p>
+            <div className="bg-white/60 backdrop-blur-md border border-gray-200/50 rounded-xl p-4 mb-5 shadow-inner">
+              <p className="text-sm text-gray-800 break-all font-mono leading-relaxed">{generatedUrl}</p>
             </div>
             
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(generatedUrl);
                   alert('URL copied to clipboard!');
                 }}
-                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium"
+                className="flex-1 bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 font-medium shadow-lg hover:shadow-xl transition-all duration-200 active:scale-95"
               >
                 📋 Copy URL
               </button>
               <button
                 onClick={() => setShowUrlModal(false)}
-                className="flex-1 bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-medium"
+                className="flex-1 bg-white/50 backdrop-blur-sm text-gray-700 px-5 py-2.5 rounded-xl hover:bg-white/70 font-medium border border-gray-200/50 transition-all duration-200 active:scale-95"
               >
                 Close
               </button>
