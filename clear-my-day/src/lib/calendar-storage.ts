@@ -30,6 +30,7 @@ export interface CalendarTokenRow {
       end: string;
     };
   }; // JSONB in Supabase
+  config_hash?: string; // MD5 hash for efficient deduplication
   created_at: string;
   updated_at: string;
   last_accessed: string;
@@ -66,26 +67,62 @@ export class CalendarStorage {
     }
 
     try {
-      // Search for tokens with same configuration in Supabase
+      // Direct hash lookup using indexed column (fast & scalable)
       const { data, error } = await supabase
         .from('calendar_tokens')
-        .select('token, filter')
-        .limit(100); // Check recent tokens
+        .select('token')
+        .eq('config_hash', configHash)
+        .single();
+
+      if (!error && data) {
+        console.log(`♻️  Reusing existing token: ${data.token}`);
+        return data.token;
+      }
+
+      // If hash column doesn't exist yet or error, try fallback migration method
+      if (error?.code === 'PGRST116' || error?.message?.includes('config_hash')) {
+        console.log('⚠️  config_hash column not found, using fallback migration');
+        return await this.findExistingFallback(configHash);
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error finding existing token:', error);
+      return null;
+    }
+  }
+
+  // Fallback method for migration period (backfills hash for existing tokens)
+  private static async findExistingFallback(configHash: string): Promise<string | null> {
+    if (!supabase) return null;
+
+    try {
+      // Fetch all tokens and scan (only during migration)
+      const { data, error } = await supabase
+        .from('calendar_tokens')
+        .select('token, filter');
 
       if (error || !data) return null;
 
-      // Find matching configuration
       for (const row of data) {
         const existingHash = hashFilterConfig(row.filter);
         if (existingHash === configHash) {
-          console.log(`♻️  Reusing existing token: ${row.token}`);
+          console.log(`♻️  Reusing existing token (fallback): ${row.token}`);
+          
+          // Backfill the hash for future lookups
+          await supabase
+            .from('calendar_tokens')
+            .update({ config_hash: configHash })
+            .eq('token', row.token);
+          
+          console.log(`✅ Backfilled hash for token: ${row.token}`);
           return row.token;
         }
       }
 
       return null;
     } catch (error) {
-      console.error('Error finding existing token:', error);
+      console.error('Error in fallback token search:', error);
       return null;
     }
   }
@@ -100,12 +137,16 @@ export class CalendarStorage {
     }
 
     try {
+      // Generate hash for deduplication
+      const configHash = hashFilterConfig(config.filter);
+
       const { error } = await supabase
         .from('calendar_tokens')
         .upsert({
           token,
           name: config.name,
           filter: config.filter,
+          config_hash: configHash,
           updated_at: new Date().toISOString()
         });
 
@@ -116,7 +157,7 @@ export class CalendarStorage {
         return false;
       }
 
-      console.log(`✅ Calendar config saved to Supabase: ${token}`);
+      console.log(`✅ Calendar config saved to Supabase: ${token} (hash: ${configHash.substring(0, 8)}...)`);
       return true;
     } catch (error) {
       console.error('Error saving to Supabase:', error);
