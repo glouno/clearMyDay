@@ -40,7 +40,7 @@ export default function SorbonneWifiWarning() {
             Sur le WiFi Sorbonne ?
           </h3>
           <p className="text-sm text-amber-800 mb-2">
-            Le pare-feu de l'université peut bloquer l'accès à ce site. 
+            Le pare-feu de l&apos;université peut bloquer l&apos;accès à ce site. 
             Pour générer votre calendrier, utilisez vos <strong>données mobiles</strong> ou 
             un autre réseau WiFi (chez vous, dans un café, etc.).
           </p>
