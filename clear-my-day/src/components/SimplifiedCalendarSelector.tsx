@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { FilterConfig } from '@/lib/types';
 import { getConfirmedM1Masters, getConfirmedM2Masters } from '@/lib/sorbonne-masters';
 import MasterLevelSelector, { MasterLevel } from './MasterLevelSelector';
@@ -64,14 +64,10 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
     onFilterChange(filter);
   }, [selectedMasters, selectedCourses, courseGroups]);
 
-  // Auto-detect groups when masters or courses change
-  useEffect(() => {
-    if (selectedMasters.length > 0 && selectedCourses.length > 0) {
-      detectAvailableGroups();
-    }
-  }, [selectedMasters, selectedCourses]);
+  // Debounced group detection
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const detectAvailableGroups = async () => {
+  const detectAvailableGroups = useCallback(async () => {
     setIsLoadingGroups(true);
     try {
       const response = await fetch(`/api/analyze-events?sources=${selectedMasters.join(',')}`);
@@ -108,7 +104,29 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
     } finally {
       setIsLoadingGroups(false);
     }
-  };
+  }, [selectedMasters, selectedCourses]);
+
+  // Auto-detect groups when masters or courses change (with debounce)
+  useEffect(() => {
+    if (selectedMasters.length > 0 && selectedCourses.length > 0) {
+      // Clear existing timeout
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+
+      // Set new timeout for debounced group detection
+      debounceTimeoutRef.current = setTimeout(() => {
+        detectAvailableGroups();
+      }, 500); // Wait 500ms after last change
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [selectedMasters, selectedCourses, detectAvailableGroups]);
 
   const updateCourseGroup = (courseId: string, value: string) => {
     setCourseGroups(prev => {

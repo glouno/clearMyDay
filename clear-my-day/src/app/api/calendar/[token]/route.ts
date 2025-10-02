@@ -5,6 +5,8 @@ import { CalendarStorage } from '@/lib/calendar-storage';
 import { caldavClient } from '@/lib/caldav-client';
 import { ICSGenerator } from '@/lib/ics-generator';
 import { CalendarParser } from '@/lib/calendar-parser';
+import { supabase } from '@/lib/supabase';
+import { CalendarEvent } from '@/lib/types';
 
 // Rate limiting storage
 const rateLimitStorage = new Map<string, { count: number; resetTime: number }>();
@@ -45,18 +47,80 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return new NextResponse('Invalid token', { status: 404 });
   }
 
+  // Generate ETag based on token and config creation time
+  const etag = `"${token}-${config.createdAt.getTime()}"`;
+  const clientEtag = request.headers.get('if-none-match');
+
+  // Check ETag - return 304 if calendar hasn't changed
+  if (clientEtag === etag) {
+    return new NextResponse(null, {
+      status: 304,
+      headers: {
+        'ETag': etag,
+        'Cache-Control': 'public, max-age=1800, s-maxage=3600, stale-while-revalidate=86400',
+      }
+    });
+  }
+
   try {
     // Initialize calendar parser and ICS generator
     const calendarParser = new CalendarParser();
     const icsGenerator = new ICSGenerator();
     
-    // Fetch calendar data
-    const results = await caldavClient.fetchAllCalendars(config.filter.masters);
-    
-    // Combine all events from successful fetches
-    const allEvents = Object.values(results)
-      .filter(result => result.success)
-      .flatMap(result => result.events);
+    // Try to get CalDAV data from cache
+    const cacheKey = `caldav-${config.filter.masters.sort().join('-')}`;
+    let allEvents: CalendarEvent[] = [];
+    let cacheHit = false;
+
+    if (supabase) {
+      try {
+        const { data: cached } = await supabase
+          .from('caldav_cache')
+          .select('*')
+          .eq('id', cacheKey)
+          .gt('expires_at', new Date().toISOString())
+          .single();
+
+        if (cached && cached.events) {
+          allEvents = cached.events as CalendarEvent[];
+          cacheHit = true;
+          console.log(`✅ CalDAV cache HIT for ${cacheKey}`);
+        }
+      } catch (cacheError) {
+        console.log(`❌ CalDAV cache MISS for ${cacheKey}`);
+      }
+    }
+
+    // If not in cache, fetch from Sorbonne CalDAV
+    if (allEvents.length === 0) {
+      const results = await caldavClient.fetchAllCalendars(config.filter.masters);
+      
+      // Combine all events from successful fetches
+      allEvents = Object.values(results)
+        .filter(result => result.success)
+        .flatMap(result => result.events);
+
+      // Cache the CalDAV response for 1 hour
+      if (supabase && allEvents.length > 0) {
+        try {
+          const expiresAt = new Date();
+          expiresAt.setHours(expiresAt.getHours() + 1); // 1 hour cache
+
+          await supabase
+            .from('caldav_cache')
+            .upsert({
+              id: cacheKey,
+              masters: config.filter.masters,
+              events: allEvents,
+              expires_at: expiresAt.toISOString()
+            });
+
+          console.log(`💾 Cached CalDAV response for ${cacheKey}`);
+        } catch (cacheError) {
+          console.warn('Failed to cache CalDAV response:', cacheError);
+        }
+      }
+    }
 
     if (allEvents.length === 0) {
       throw new Error('No calendar events could be fetched');
@@ -90,8 +154,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       headers: {
         'Content-Type': 'text/calendar; charset=utf-8',
         'Content-Disposition': `inline; filename="${config.name.replace(/[^a-zA-Z0-9]/g, '_')}.ics"`,
-        'Cache-Control': 'public, max-age=300', // Cache for 5 minutes
-        'ETag': `"${token}-${config.createdAt.getTime()}"`,
+        'Cache-Control': 'public, max-age=1800, s-maxage=3600, stale-while-revalidate=86400',
+        'ETag': etag,
+        'X-Cache-Status': cacheHit ? 'HIT' : 'MISS',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
