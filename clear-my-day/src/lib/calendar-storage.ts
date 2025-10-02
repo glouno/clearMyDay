@@ -1,5 +1,6 @@
 // Production-ready calendar configuration storage using Supabase
 import { supabase } from './supabase';
+import crypto from 'crypto';
 
 export interface CalendarConfig {
   name: string;
@@ -35,8 +36,50 @@ export interface CalendarTokenRow {
   access_count: number;
 }
 
+// Helper function to create a hash of filter configuration for deduplication
+function hashFilterConfig(filter: CalendarConfig['filter']): string {
+  const normalized = JSON.stringify({
+    masters: [...filter.masters].sort(),
+    courses: [...filter.courses].sort(),
+    courseGroups: filter.courseGroups || {},
+    // Ignore dates for deduplication - different dates shouldn't create new tokens
+  });
+  return crypto.createHash('md5').update(normalized).digest('hex');
+}
+
 // Production-ready calendar storage class
 export class CalendarStorage {
+  // Find existing token with same filter configuration (deduplication)
+  static async findExisting(config: CalendarConfig): Promise<string | null> {
+    if (!supabase) return null;
+
+    try {
+      const configHash = hashFilterConfig(config.filter);
+      
+      // Search for tokens with same configuration
+      const { data, error } = await supabase
+        .from('calendar_tokens')
+        .select('token, filter')
+        .limit(100); // Check recent tokens
+
+      if (error || !data) return null;
+
+      // Find matching configuration
+      for (const row of data) {
+        const existingHash = hashFilterConfig(row.filter);
+        if (existingHash === configHash) {
+          console.log(`♻️  Reusing existing token: ${row.token}`);
+          return row.token;
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error finding existing token:', error);
+      return null;
+    }
+  }
+
   // Save calendar configuration to Supabase
   static async set(token: string, config: CalendarConfig): Promise<boolean> {
     if (!supabase) {
