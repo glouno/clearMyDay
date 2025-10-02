@@ -23,10 +23,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate unique token for this calendar configuration
-    const token = uuidv4();
-    
-    // Store the configuration in Supabase
+    // Prepare the configuration
     const config: CalendarConfig = {
       name,
       filter: {
@@ -39,9 +36,18 @@ export async function POST(request: NextRequest) {
       createdAt: new Date()
     };
     
-    const saved = await CalendarStorage.set(token, config);
-    if (!saved) {
-      console.warn('Failed to save to Supabase, but continuing with fallback storage');
+    // Check if a token with the same configuration already exists (deduplication)
+    let token = await CalendarStorage.findExisting(config);
+    
+    if (!token) {
+      // Generate unique token for new configuration
+      token = uuidv4();
+      
+      // Store the configuration in Supabase
+      const saved = await CalendarStorage.set(token, config);
+      if (!saved) {
+        console.warn('Failed to save to Supabase, but continuing with fallback storage');
+      }
     }
 
     // Generate subscription URL

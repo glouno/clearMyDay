@@ -90,21 +90,24 @@ export const ALL_SORBONNE_MASTERS: Record<string, SorborneCalendarSource> = {
     id: 'DAC_M2',
     name: 'M2 MIND/DAC (Machine Learning, Artificial Intelligence and Data / Data, Apprentissage, Connaissances)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/DAC/M2_DAC',
-    courses: ['LSDA', 'GDC', 'ADL', 'RL', 'XAI', 'MEDS', 'SACE', 'LMM', 'DEEP', 'BDLE', 'RLD', 'AMAL', 'REDS'], // From ListOfMasters.md
+    // Updated 2024-2025: Real courses with active events (sorted by event count)
+    courses: ['BDLE', 'AMAL', 'RLD', 'REDS', 'LODAS', 'AS', 'XAI', 'FDMS', 'RI', 'CI', 'LSDA', 'MEDS', 'ASWS', 'SACE', 'ADL', 'GDC', 'RL', 'ORACOI', 'DEEP', 'LMM'],
     defaultGroups: {}
   },
   IMA_M2: {
     id: 'IMA_M2',
     name: 'M2 IMA (Informatique Médicale et Applications)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/IMA/M2_IMA',
-    courses: ['VISION', 'MAPIMED', 'PRAT', 'TADI', 'RDFIA', 'BIOMED', 'IG3DA'], // From ListOfMasters.md
+    // Updated 2024-2025: Real courses with active events (sorted by event count)
+    courses: ['RDFIA', 'TADI', 'BIOMED', 'VISION', 'APIMED', 'PRAT', 'DA'],
     defaultGroups: {}
   },
   ANDROIDE_M2: {
     id: 'ANDROIDE_M2',
     name: 'M2 AI2D/ANDROIDE (Artificial Intelligence, Algorithms, Interactions and Decision-making / Agents Distribués, Robotique, Recherche Opérationnelle, Interaction, Décision)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/ANDROIDE/M2_ANDROIDE',
-    courses: ['MOSIMA', 'COCOMA', 'MADMC', 'MAOA', 'AI', 'AOTJ', 'MADI', 'HAII', 'IAR'], // From ListOfMasters.md
+    // Updated 2024-2025: Real courses with active events (sorted by event count)
+    courses: ['IAR', 'COCOMA', 'MADMC', 'AOTJ', 'MAOA', 'MADI', 'MOSIMA', 'ISG', 'EVIH', 'AI'],
     defaultGroups: {}
   },
   BIM_M2: {
@@ -118,14 +121,16 @@ export const ALL_SORBONNE_MASTERS: Record<string, SorborneCalendarSource> = {
     id: 'RES_M2',
     name: 'M2 RES (Computer Networks: Internet, Cybersecurity, Cloud and Automation)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/RES/M2_RES',
-    courses: ['GAN', 'SECRES', 'ITQoS', 'ITQOS', 'MADRE', 'MEPS', 'NEVA', 'NOVA', 'IOB', 'ANET', 'CELL'], // From ListOfMasters.md
+    // Updated 2024-2025: Real courses with active events (sorted by event count)
+    courses: ['SECRES', 'NEVA', 'ITQOS', 'CELL', 'ANET', 'NETMET', 'NAM', 'MEPS', 'NDA', 'IGOV', 'DAAR', 'METHOD'],
     defaultGroups: {}
   },
   SAR_M2: {
     id: 'SAR_M2',
     name: 'M2 SAR (Distributed Systems and Applications)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/SAR/M2_SAR',
-    courses: ['ARA', 'NMV', 'ASTRE', 'DATACLOUD'], // From ListOfMasters.md
+    // Updated 2024-2025: Real courses with active events (sorted by event count)
+    courses: ['NMV', 'ASTRE', 'ARA', 'PPM', 'DEVREP', 'CODEL', 'SF', 'ACLOUD', 'IDM'],
     defaultGroups: {}
   },
   SESI_M2: {
@@ -139,7 +144,8 @@ export const ALL_SORBONNE_MASTERS: Record<string, SorborneCalendarSource> = {
     id: 'STL_M2',
     name: 'M2 STL (Software Science and Technology)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/STL/M2_STL',
-    courses: ['TAS', 'GRAPA', 'DAAR', 'TPEA', 'SVP', 'ALASCA', 'GPSTL', 'AAGA', 'PISTL', 'PPC'], // From ListOfMasters.md
+    // Updated 2024-2025: Real courses with active events (sorted by event count)
+    courses: ['TAS', 'PPC', 'DAAR', 'AAGA', 'ALASCA', 'PISTL', 'TPEA', 'RECH', 'GRAPA', 'DAR', 'GPSTL', 'SVP'],
     defaultGroups: {}
   },
   

@@ -19,9 +19,11 @@ export const metadata: Metadata = {
   description: "Generate personalized calendar subscriptions for Sorbonne University courses with TD/TME group filtering",
   icons: {
     icon: [
-      { url: '/logo.svg', type: 'image/svg+xml' },
+      { url: '/favicon.png', sizes: 'any' },
     ],
-    apple: '/logo.svg',
+    apple: [
+      { url: '/favicon.png', sizes: '180x180', type: 'image/png' },
+    ],
   },
 };
 
