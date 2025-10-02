@@ -51,12 +51,22 @@ function hashFilterConfig(filter: CalendarConfig['filter']): string {
 export class CalendarStorage {
   // Find existing token with same filter configuration (deduplication)
   static async findExisting(config: CalendarConfig): Promise<string | null> {
-    if (!supabase) return null;
+    const configHash = hashFilterConfig(config.filter);
+    
+    if (!supabase) {
+      // Fallback to in-memory storage
+      for (const [token, existingConfig] of calendarConfigs.entries()) {
+        const existingHash = hashFilterConfig(existingConfig.filter);
+        if (existingHash === configHash) {
+          console.log(`♻️  Reusing existing token (in-memory): ${token}`);
+          return token;
+        }
+      }
+      return null;
+    }
 
     try {
-      const configHash = hashFilterConfig(config.filter);
-      
-      // Search for tokens with same configuration
+      // Search for tokens with same configuration in Supabase
       const { data, error } = await supabase
         .from('calendar_tokens')
         .select('token, filter')
