@@ -140,6 +140,18 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
     });
   };
 
+  // Display name mapping for M1 masters (cosmetic only, backend uses original IDs)
+  const getMasterDisplayName = (masterId: string): string => {
+    if (masterLevel === 'M1') {
+      const displayNames: {[key: string]: string} = {
+        'DAC': 'MIND',
+        'ANDROIDE': 'AI2D'
+      };
+      return displayNames[masterId] || masterId;
+    }
+    return masterId;
+  };
+
   const handleMasterChange = (masterId: string, checked: boolean) => {
     if (checked) {
       setSelectedMasters(prev => [...prev, masterId]);
@@ -250,7 +262,7 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
                   className="mr-2 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
                 <span className="text-sm sm:text-base text-gray-700 font-medium" title={master.name}>
-                  {masterId}
+                  {getMasterDisplayName(masterId)}
                 </span>
               </label>
             ))}
@@ -259,9 +271,22 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
 
         {/* Course Selection */}
         <div className="mb-6 sm:mb-8 pb-6 border-b border-gray-200">
-          <label className="block text-sm font-medium text-gray-600 mb-3">
-            Courses
-          </label>
+          <div className="flex items-center justify-between mb-3">
+            <label className="block text-sm font-medium text-gray-600">
+              Courses
+            </label>
+            {selectedCourses.length > 0 && (
+              <button
+                onClick={() => {
+                  setSelectedCourses([]);
+                  setCourseGroups({});
+                }}
+                className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50 transition-colors"
+              >
+                Unselect All
+              </button>
+            )}
+          </div>
           <div className="flex flex-wrap gap-3">
             {availableCourses.map(course => (
               <label key={course} className="flex items-center cursor-pointer">
