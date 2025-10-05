@@ -57,7 +57,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       status: 304,
       headers: {
         'ETag': etag,
-        'Cache-Control': 'public, max-age=1800, s-maxage=3600, stale-while-revalidate=86400',
+        'Cache-Control': 'public, max-age=21600, s-maxage=43200, stale-while-revalidate=172800',
       }
     });
   }
@@ -100,11 +100,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         .filter(result => result.success)
         .flatMap(result => result.events);
 
-      // Cache the CalDAV response for 1 hour
+      // Cache the CalDAV response for 6 hours
       if (supabase && allEvents.length > 0) {
         try {
           const expiresAt = new Date();
-          expiresAt.setHours(expiresAt.getHours() + 1); // 1 hour cache
+          expiresAt.setHours(expiresAt.getHours() + 6); // 6 hour cache
 
           await supabase
             .from('caldav_cache')
@@ -154,7 +154,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       headers: {
         'Content-Type': 'text/calendar; charset=utf-8',
         'Content-Disposition': `inline; filename="${config.name.replace(/[^a-zA-Z0-9]/g, '_')}.ics"`,
-        'Cache-Control': 'public, max-age=1800, s-maxage=3600, stale-while-revalidate=86400',
+        'Cache-Control': 'public, max-age=21600, s-maxage=43200, stale-while-revalidate=172800',
         'ETag': etag,
         'X-Cache-Status': cacheHit ? 'HIT' : 'MISS',
         'Access-Control-Allow-Origin': '*',

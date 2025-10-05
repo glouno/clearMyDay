@@ -37,9 +37,11 @@ export interface CalendarTokenRow {
   access_count: number;
 }
 
-// Helper function to create a hash of filter configuration for deduplication
-function hashFilterConfig(filter: CalendarConfig['filter']): string {
+// Helper function to create a hash of filter + name for deduplication
+// Including name allows each user to have their own personalized calendar
+function hashFilterConfig(filter: CalendarConfig['filter'], name: string): string {
   const normalized = JSON.stringify({
+    name: name.trim(), // Include name for personalized calendars
     masters: [...filter.masters].sort(),
     courses: [...filter.courses].sort(),
     courseGroups: filter.courseGroups || {},
@@ -50,14 +52,14 @@ function hashFilterConfig(filter: CalendarConfig['filter']): string {
 
 // Production-ready calendar storage class
 export class CalendarStorage {
-  // Find existing token with same filter configuration (deduplication)
+  // Find existing token with same filter + name configuration (deduplication)
   static async findExisting(config: CalendarConfig): Promise<string | null> {
-    const configHash = hashFilterConfig(config.filter);
+    const configHash = hashFilterConfig(config.filter, config.name);
     
     if (!supabase) {
       // Fallback to in-memory storage
       for (const [token, existingConfig] of calendarConfigs.entries()) {
-        const existingHash = hashFilterConfig(existingConfig.filter);
+        const existingHash = hashFilterConfig(existingConfig.filter, existingConfig.name);
         if (existingHash === configHash) {
           console.log(`♻️  Reusing existing token (in-memory): ${token}`);
           return token;
@@ -100,12 +102,12 @@ export class CalendarStorage {
       // Fetch all tokens and scan (only during migration)
       const { data, error } = await supabase
         .from('calendar_tokens')
-        .select('token, filter');
+        .select('token, name, filter');
 
       if (error || !data) return null;
 
       for (const row of data) {
-        const existingHash = hashFilterConfig(row.filter);
+        const existingHash = hashFilterConfig(row.filter, row.name);
         if (existingHash === configHash) {
           console.log(`♻️  Reusing existing token (fallback): ${row.token}`);
           
@@ -137,8 +139,8 @@ export class CalendarStorage {
     }
 
     try {
-      // Generate hash for deduplication
-      const configHash = hashFilterConfig(config.filter);
+      // Generate hash for deduplication (includes name for personalization)
+      const configHash = hashFilterConfig(config.filter, config.name);
 
       const { error } = await supabase
         .from('calendar_tokens')

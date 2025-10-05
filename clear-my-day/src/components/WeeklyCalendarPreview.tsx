@@ -119,11 +119,13 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
       console.log('🚀 Fetching calendar events using simplified flow...');
       
       // Step 1: Generate calendar using the working API
+      // Note: Using a static preview name to avoid database pollution
+      // All preview calendars share the same token (efficient for CalDAV caching)
       const response = await fetch('/api/generate-calendar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: 'Weekly Calendar Preview',
+          name: '[Preview Calendar - Not for subscription]',
           filter: {
             masters: selectedMasters,
             courses: selectedCourses,
