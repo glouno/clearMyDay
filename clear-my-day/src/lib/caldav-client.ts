@@ -6,6 +6,37 @@ import { SORBONNE_CALENDARS, SORBONNE_AUTH, APP_CONFIG, HTTP_HEADERS, ERROR_MESS
 // Using node-ical for ICS parsing instead of xml2js
 import * as ical from 'node-ical';
 
+/**
+ * Calculate current academic year date range
+ * Academic year runs from September 1st to August 31st
+ * Returns dates for current + next academic year
+ */
+function getAcademicYearRange(): { start: string; end: string } {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth(); // 0-11
+  
+  // If we're in Sept-Dec (months 8-11), academic year started this year
+  // If we're in Jan-Aug (months 0-7), academic year started last year
+  const academicYearStartYear = currentMonth >= 8 ? currentYear : currentYear - 1;
+  
+  // Start: September 1st of academic year start
+  const start = new Date(Date.UTC(academicYearStartYear, 8, 1, 0, 0, 0));
+  
+  // End: August 31st, 2 years later (covers current + next academic year)
+  const end = new Date(Date.UTC(academicYearStartYear + 2, 7, 31, 23, 59, 59));
+  
+  // Format as CalDAV time-range format: YYYYMMDDTHHmmssZ
+  const formatCalDAVDate = (date: Date) => {
+    return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  };
+  
+  return {
+    start: formatCalDAVDate(start),
+    end: formatCalDAVDate(end)
+  };
+}
+
 // interface FetchOptions { // Unused interface
 //   timeout?: number;
 //   retries?: number;
@@ -20,6 +51,7 @@ class CalDAVClient {
 
   /**
    * Fetch calendar data from a Sorbonne calendar source
+   * Uses CalDAV REPORT method with time-range filtering for current academic year
    */
   async fetchCalendar(
     source: CalendarSource
@@ -36,6 +68,25 @@ class CalDAVClient {
 
     let lastError: Error | null = null;
     
+    // Get academic year date range (Sept current year + 2 years)
+    const { start, end } = getAcademicYearRange();
+    console.log(`📅 Fetching ${source.name} calendar for academic year: ${start} to ${end}`);
+    
+    // CalDAV REPORT XML body with time-range filter
+    const reportBody = `<?xml version="1.0" encoding="utf-8" ?>
+<C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <D:prop>
+    <C:calendar-data />
+  </D:prop>
+  <C:filter>
+    <C:comp-filter name="VCALENDAR">
+      <C:comp-filter name="VEVENT">
+        <C:time-range start="${start}" end="${end}"/>
+      </C:comp-filter>
+    </C:comp-filter>
+  </C:filter>
+</C:calendar-query>`;
+    
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
         // Create manual timeout controller (AbortSignal.timeout not reliable in Vercel)
@@ -43,12 +94,14 @@ class CalDAVClient {
         const timeoutId = setTimeout(() => controller.abort(), this.timeout);
         
         const response = await fetch(source.url, {
-          method: 'GET',
+          method: 'REPORT',
           headers: {
             'Authorization': `Basic ${Buffer.from(`${source.auth.username}:${source.auth.password}`).toString('base64')}`,
             'User-Agent': HTTP_HEADERS.USER_AGENT,
-            'Accept': 'text/calendar',
+            'Content-Type': 'application/xml; charset=utf-8',
+            'Depth': '1',
           },
+          body: reportBody,
           signal: controller.signal
         });
         
@@ -58,10 +111,12 @@ class CalDAVClient {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        const calendarData = await response.text();
+        const xmlData = await response.text();
         
-        // Validate that we got ICS data
-        if (!calendarData.includes('BEGIN:VCALENDAR')) {
+        // Parse XML multistatus response and extract ICS data
+        const calendarData = this.parseCalDAVMultiStatus(xmlData);
+        
+        if (!calendarData || !calendarData.includes('BEGIN:VCALENDAR')) {
           throw new Error('Invalid calendar data received - missing VCALENDAR');
         }
         
@@ -85,6 +140,54 @@ class CalDAVClient {
     }
 
     throw new Error(`Failed to fetch calendar ${source.name} after ${this.maxRetries} attempts: ${lastError?.message}`);
+  }
+
+  /**
+   * Parse CalDAV multistatus XML response and extract ICS calendar data
+   * Combines multiple VCALENDAR entries into a single ICS file
+   */
+  private parseCalDAVMultiStatus(xmlData: string): string {
+    // Extract all calendar-data content from XML
+    const calendarDataRegex = /<C:calendar-data[^>]*>([\s\S]*?)<\/C:calendar-data>/gi;
+    const matches = xmlData.matchAll(calendarDataRegex);
+    
+    const events: string[] = [];
+    let timezoneData = '';
+    
+    for (const match of matches) {
+      const icsContent = match[1].trim();
+      
+      // Extract VTIMEZONE (use first one found)
+      if (!timezoneData && icsContent.includes('BEGIN:VTIMEZONE')) {
+        const tzMatch = icsContent.match(/BEGIN:VTIMEZONE[\s\S]*?END:VTIMEZONE/);
+        if (tzMatch) {
+          timezoneData = tzMatch[0];
+        }
+      }
+      
+      // Extract VEVENT
+      const eventMatches = icsContent.matchAll(/BEGIN:VEVENT[\s\S]*?END:VEVENT/g);
+      for (const eventMatch of eventMatches) {
+        events.push(eventMatch[0]);
+      }
+    }
+    
+    // Combine into single ICS file
+    const icsLines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//ClearMyDay//Sorbonne Calendar Sync//EN',
+      'CALSCALE:GREGORIAN',
+    ];
+    
+    if (timezoneData) {
+      icsLines.push(timezoneData);
+    }
+    
+    icsLines.push(...events);
+    icsLines.push('END:VCALENDAR');
+    
+    return icsLines.join('\r\n');
   }
 
   /**

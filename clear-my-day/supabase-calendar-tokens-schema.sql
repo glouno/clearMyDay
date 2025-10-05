@@ -29,13 +29,17 @@ USING (true);
 
 -- Function to update last_accessed automatically
 CREATE OR REPLACE FUNCTION update_last_accessed()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 BEGIN
   NEW.last_accessed = NOW();
   NEW.access_count = OLD.access_count + 1;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Trigger to update last_accessed when token is used
 CREATE TRIGGER update_calendar_token_access

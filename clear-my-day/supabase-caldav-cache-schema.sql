@@ -33,7 +33,11 @@ CREATE POLICY "Allow all operations on caldav_cache" ON caldav_cache
 -- Optional: Create a function to clean up expired cache entries
 -- This can be called manually or scheduled with pg_cron extension
 CREATE OR REPLACE FUNCTION cleanup_expired_caldav_cache()
-RETURNS INTEGER AS $$
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
 DECLARE
   deleted_count INTEGER;
 BEGIN
@@ -43,7 +47,7 @@ BEGIN
   GET DIAGNOSTICS deleted_count = ROW_COUNT;
   RETURN deleted_count;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Optional: Comment on the function
 COMMENT ON FUNCTION cleanup_expired_caldav_cache() IS 'Deletes expired entries from caldav_cache table. Returns count of deleted rows.';
