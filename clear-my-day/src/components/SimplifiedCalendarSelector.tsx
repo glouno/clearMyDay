@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import Image from 'next/image';
 import { FilterConfig } from '@/lib/types';
 import { getConfirmedM1Masters, getConfirmedM2Masters } from '@/lib/sorbonne-masters';
 import MasterLevelSelector, { MasterLevel } from './MasterLevelSelector';
@@ -140,12 +141,19 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
     });
   };
 
-  // Display name mapping for M1 masters (cosmetic only, backend uses original IDs)
+  // Display name mapping for masters (cosmetic only, backend uses original IDs)
   const getMasterDisplayName = (masterId: string): string => {
     if (masterLevel === 'M1') {
       const displayNames: {[key: string]: string} = {
         'DAC': 'MIND',
-        'ANDROIDE': 'AI2D'
+        'ANDROIDE': 'AI2D',
+        'SFPN': 'CCA'
+      };
+      return displayNames[masterId] || masterId;
+    }
+    if (masterLevel === 'M2') {
+      const displayNames: {[key: string]: string} = {
+        'SFPN_M2': 'CCA'
       };
       return displayNames[masterId] || masterId;
     }
@@ -223,7 +231,18 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
   return (
     <div className="max-w-4xl mx-auto p-2 sm:p-6 space-y-4 sm:space-y-6">
       <div className="bg-white rounded-lg shadow-lg p-3 sm:p-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">ClearMyDay</h1>
+        {/* Header with logo */}
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">ClearMyDay</h1>
+          <Image
+            src="/logo.webp"
+            alt="ClearMyDay Logo"
+            width={64}
+            height={64}
+            className="w-12 h-12 sm:w-16 sm:h-16"
+            priority
+          />
+        </div>
         <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Filter your Sorbonne calendar</p>
         
         {/* Calendar Name */}
