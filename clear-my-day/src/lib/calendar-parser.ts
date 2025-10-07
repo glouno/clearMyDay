@@ -15,8 +15,12 @@ export class CalendarParser {
         return false;
       }
 
-      // Course filter - only apply if courses are specified
-      if (filter.courses.length > 0 && !this.matchesCourses(event, filter.courses)) {
+      // Check if this is a general event (SOI, conferences, orientation)
+      // General events bypass course filtering but still respect group filtering
+      const isGeneralEvent = this.isGeneralEvent(event);
+
+      // Course filter - only apply if courses are specified AND event is not general
+      if (filter.courses.length > 0 && !isGeneralEvent && !this.matchesCourses(event, filter.courses)) {
         return false;
       }
 
@@ -37,6 +41,35 @@ export class CalendarParser {
 
       return true;
     });
+  }
+
+  /**
+   * Check if event is a general event (SOI, conferences, orientation meetings)
+   * These events should be included regardless of course selection
+   */
+  private isGeneralEvent(event: CalendarEvent): boolean {
+    const summary = event.summary.toLowerCase();
+    const description = (event.description || '').toLowerCase();
+    const eventText = `${summary} ${description}`;
+    
+    // Patterns for general events that apply to all students
+    const generalEventPatterns = [
+      /\bsoi\b/i,                           // SOI events
+      /service.*orientation/i,               // Service Orientation et Insertion
+      /insertion.*professionnelle/i,         // Professional insertion
+      /conf[eé]rence.*m[eé]tiers/i,         // Career conferences
+      /r[eé]union.*rentr[eé]e/i,            // Orientation meetings
+      /rentr[eé]e\s+(m1|m2|master)/i,       // M1/M2 orientation
+      /assembl[eé]e.*g[eé]n[eé]rale/i,      // General assemblies
+      /\bag\b.*m1|m1.*\bag\b/i,             // M1 AG
+      /\bag\b.*m2|m2.*\bag\b/i,             // M2 AG
+      /forum.*entreprise/i,                  // Career forums
+      /journ[eé]e.*m[eé]tier/i,             // Career days
+      /pr[eé]sentation.*master/i,           // Master presentations
+      /information.*collective/i             // Collective information sessions
+    ];
+    
+    return generalEventPatterns.some(pattern => pattern.test(eventText));
   }
 
   /**
