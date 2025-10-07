@@ -155,12 +155,25 @@ export class ICSGenerator {
 
   /**
    * Fix RRULE timezone issues for better Apple Calendar compatibility
+   * Also handles malformed RRULEs from source calendars (e.g., Sorbonne CalDAV)
    */
   private fixRruleTimezone(rrule: string): string {
     let fixedRrule = rrule;
     
-    // Remove any DTSTART from RRULE (it shouldn't be there)
-    fixedRrule = fixedRrule.replace(/;DTSTART=[^;]*/g, '');
+    // Handle malformed RRULE with embedded DTSTART (common in some CalDAV servers)
+    // Example: "DTSTART;TZID=Europe/Paris:20250915T134500\nRRULE:FREQ=WEEKLY;UNTIL=20250915T215959"
+    if (fixedRrule.includes('DTSTART')) {
+      // Extract only the actual RRULE part (after DTSTART line and after "RRULE:" prefix)
+      const rruleParts = fixedRrule.split(/[\r\n]+/);
+      const actualRrule = rruleParts.find(part => part.includes('FREQ='));
+      if (actualRrule) {
+        // Remove "RRULE:" prefix if present
+        fixedRrule = actualRrule.replace(/^RRULE:/i, '');
+      }
+    }
+    
+    // Remove any remaining DTSTART parameters from RRULE (shouldn't be there per RFC 5545)
+    fixedRrule = fixedRrule.replace(/;?DTSTART[^;]*(;|$)/g, '$1');
     
     // Convert UTC UNTIL dates to local timezone format for better compatibility
     // Example: FREQ=WEEKLY;UNTIL=20250408T215959Z -> FREQ=WEEKLY;UNTIL=20250408T235959
@@ -175,6 +188,9 @@ export class ICSGenerator {
       const localDateStr = this.formatDateTime(parisDate);
       return `UNTIL=${localDateStr}`;
     });
+    
+    // Clean up any leading/trailing semicolons or whitespace
+    fixedRrule = fixedRrule.replace(/^;+|;+$/g, '').trim();
     
     return fixedRrule;
   }
