@@ -89,11 +89,11 @@ export class ICSGenerator {
       lines.push(`CATEGORIES:${event.categories.map(cat => this.escapeText(cat)).join(',')}`);
     }
     
-    // Add creation and modification timestamps
-    const now = this.formatDateTime(new Date());
-    lines.push(`CREATED:${now}`);
-    lines.push(`LAST-MODIFIED:${now}`);
-    lines.push(`DTSTAMP:${now}`);
+    // Add creation and modification timestamps (RFC 5545 requires UTC format with Z suffix)
+    const nowUTC = this.formatDateTimeUTC(new Date());
+    lines.push(`CREATED:${nowUTC}`);
+    lines.push(`LAST-MODIFIED:${nowUTC}`);
+    lines.push(`DTSTAMP:${nowUTC}`);
     
     // Add recurrence rule if present
     if (event.rrule) {
@@ -136,6 +136,21 @@ export class ICSGenerator {
     const seconds = parisTime.find(part => part.type === 'second')?.value || '';
     
     return `${year}${month}${day}T${hours}${minutes}${seconds}`;
+  }
+
+  /**
+   * Format date/time in UTC for ICS format (YYYYMMDDTHHMMSSZ)
+   * Required for DTSTAMP, CREATED, and LAST-MODIFIED per RFC 5545
+   */
+  private formatDateTimeUTC(date: Date): string {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const hours = String(date.getUTCHours()).padStart(2, '0');
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+    
+    return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
   }
 
   /**
