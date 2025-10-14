@@ -26,10 +26,27 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
   // Get available masters based on selected level
   const availableMasters = masterLevel === 'M1' ? getConfirmedM1Masters() : getConfirmedM2Masters();
   
-  // Get available courses based on selected masters
-  const availableCourses = selectedMasters.flatMap(masterId => {
+  // Get available courses based on selected masters with master context
+  // For courses like OIP that appear in multiple masters, we need to show which master it belongs to
+  const availableCoursesWithContext = selectedMasters.flatMap(masterId => {
     const master = availableMasters[masterId];
-    return master ? master.courses : [];
+    if (!master) return [];
+    
+    return master.courses.map(course => ({
+      courseId: course,
+      masterId: masterId,
+      displayName: course === 'OIP' ? `${course} (${getMasterDisplayName(masterId)})` : course,
+      // Unique key for courses that appear in multiple masters
+      key: course === 'OIP' ? `${course}-${masterId}` : course
+    }));
+  });
+  
+  // Remove duplicate non-OIP courses (keep all OIP variants)
+  const availableCourses = availableCoursesWithContext.filter((courseObj, index, self) => {
+    // For OIP courses, keep all variants (one per master)
+    if (courseObj.courseId === 'OIP') return true;
+    // For other courses, keep only first occurrence
+    return index === self.findIndex(c => c.courseId === courseObj.courseId);
   });
 
   // Reset selections when master level changes
@@ -107,7 +124,8 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
     }
   }, [selectedMasters, selectedCourses]);
 
-  // Auto-detect groups when masters or courses change (with debounce)
+  // Auto-detect groups in background when masters or courses change (with debounce)
+  // This runs in the background without blocking page rendering
   useEffect(() => {
     if (selectedMasters.length > 0 && selectedCourses.length > 0) {
       // Clear existing timeout
@@ -116,9 +134,11 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
       }
 
       // Set new timeout for debounced group detection
+      // 300ms is fast enough for UX while preventing spam requests
       debounceTimeoutRef.current = setTimeout(() => {
+        // Run in background - won't block rendering
         detectAvailableGroups();
-      }, 500); // Wait 500ms after last change
+      }, 300); // Wait 300ms after last change
     }
 
     // Cleanup on unmount
@@ -307,15 +327,15 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
             )}
           </div>
           <div className="flex flex-wrap gap-3">
-            {availableCourses.map(course => (
-              <label key={course} className="flex items-center cursor-pointer">
+            {availableCourses.map(courseObj => (
+              <label key={courseObj.key} className="flex items-center cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={selectedCourses.includes(course)}
-                  onChange={(e) => handleCourseChange(course, e.target.checked)}
+                  checked={selectedCourses.includes(courseObj.courseId)}
+                  onChange={(e) => handleCourseChange(courseObj.courseId, e.target.checked)}
                   className="mr-2 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
-                <span className="text-sm text-gray-700">{course}</span>
+                <span className="text-sm text-gray-700">{courseObj.displayName}</span>
               </label>
             ))}
           </div>
