@@ -12,7 +12,7 @@ interface SimplifiedCalendarSelectorProps {
   loading?: boolean;
 }
 
-export default function SimplifiedCalendarSelector({ onFilterChange, loading = false }: SimplifiedCalendarSelectorProps) {
+export default function SimplifiedCalendarSelector({ onFilterChange }: SimplifiedCalendarSelectorProps) {
   const [masterLevel, setMasterLevel] = useState<MasterLevel>('M1');
   const [selectedMasters, setSelectedMasters] = useState<string[]>(['DAC']);
   const [selectedCourses, setSelectedCourses] = useState<string[]>(['MLBDA']);
@@ -32,10 +32,13 @@ export default function SimplifiedCalendarSelector({ onFilterChange, loading = f
     const master = availableMasters[masterId];
     if (!master) return [];
     
+    // Extract short name from master ID (e.g., "DAC_M2" -> "DAC", "IMA_M2" -> "IMA")
+    const shortName = masterId.replace('_M2', '').replace('_M1', '');
+    
     return master.courses.map(course => ({
       courseId: course,
       masterId: masterId,
-      displayName: course === 'OIP' ? `${course} (${getMasterDisplayName(masterId)})` : course,
+      displayName: course === 'OIP' ? `${course} (${shortName})` : course,
       // Unique key for courses that appear in multiple masters
       key: course === 'OIP' ? `${course}-${masterId}` : course
     }));

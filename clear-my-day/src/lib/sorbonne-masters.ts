@@ -298,7 +298,7 @@ export async function discoverAllCourses(): Promise<{ [masterId: string]: string
   // Test which masters are accessible first
   const accessibleMasters: SorborneCalendarSource[] = [];
   
-  for (const [masterId, master] of Object.entries(ALL_SORBONNE_MASTERS)) {
+  for (const master of Object.values(ALL_SORBONNE_MASTERS)) {
     const isAccessible = await testCalDAVEndpoint(master);
     if (isAccessible) {
       accessibleMasters.push(master);
