@@ -36,18 +36,21 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
     const shortName = masterId.replace('_M2', '').replace('_M1', '');
     
     return master.courses.map(course => ({
-      courseId: course,
+      // For OIP, make courseId unique per master so each OIP is independent
+      courseId: course === 'OIP' ? `OIP-${masterId}` : course,
       masterId: masterId,
       displayName: course === 'OIP' ? `${course} (${shortName})` : course,
       // Unique key for courses that appear in multiple masters
-      key: course === 'OIP' ? `${course}-${masterId}` : course
+      key: course === 'OIP' ? `${course}-${masterId}` : course,
+      // Store original course name for backend filtering
+      originalCourse: course
     }));
   });
   
   // Remove duplicate non-OIP courses (keep all OIP variants)
   const availableCourses = availableCoursesWithContext.filter((courseObj, index, self) => {
     // For OIP courses, keep all variants (one per master)
-    if (courseObj.courseId === 'OIP') return true;
+    if (courseObj.courseId.startsWith('OIP-')) return true;
     // For other courses, keep only first occurrence
     return index === self.findIndex(c => c.courseId === courseObj.courseId);
   });
@@ -58,7 +61,11 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
     if (firstMaster) {
       setSelectedMasters([firstMaster]);
       const firstMasterCourses = availableMasters[firstMaster].courses;
-      setSelectedCourses(firstMasterCourses.length > 0 ? [firstMasterCourses[0]] : []);
+      // Map OIP to OIP-masterId for first course
+      const mappedCourses = firstMasterCourses.length > 0 
+        ? [firstMasterCourses[0] === 'OIP' ? `OIP-${firstMaster}` : firstMasterCourses[0]]
+        : [];
+      setSelectedCourses(mappedCourses);
       setCourseGroups({});
     }
   }, [masterLevel]);
@@ -71,9 +78,14 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
     const endDate = new Date(now);
     endDate.setDate(endDate.getDate() + 365);
 
+    // Map OIP-specific courseIds back to "OIP" for backend
+    const backendCourses = selectedCourses.map(courseId => 
+      courseId.startsWith('OIP-') ? 'OIP' : courseId
+    );
+
     const filter: FilterConfig = {
       masters: selectedMasters,
-      courses: selectedCourses,
+      courses: backendCourses,
       groups: { td: '', tme: '' }, // Empty legacy groups
       courseGroups: courseGroups,
       dateRange: {
@@ -186,32 +198,36 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
   const handleMasterChange = (masterId: string, checked: boolean) => {
     if (checked) {
       setSelectedMasters(prev => [...prev, masterId]);
-      // Auto-select default courses for this master
+      // Auto-select default courses for this master (map OIP to OIP-masterId)
       const master = availableMasters[masterId];
       if (master) {
-        const defaultCourses = master.courses;
-        setSelectedCourses(prev => [...new Set([...prev, ...defaultCourses])]);
+        const mappedCourses = master.courses.map(c => 
+          c === 'OIP' ? `OIP-${masterId}` : c
+        );
+        setSelectedCourses(prev => [...new Set([...prev, ...mappedCourses])]);
       }
     } else {
       setSelectedMasters(prev => prev.filter(m => m !== masterId));
-      // Remove courses from this master
+      // Remove courses from this master (including OIP-masterId)
       const master = availableMasters[masterId];
       if (master) {
-        const coursesToRemove = master.courses;
+        const coursesToRemove = master.courses.map(c => 
+          c === 'OIP' ? `OIP-${masterId}` : c
+        );
         setSelectedCourses(prev => prev.filter(course => !coursesToRemove.includes(course)));
       }
     }
   };
 
-  const handleCourseChange = (course: string, checked: boolean) => {
+  const handleCourseChange = (courseId: string, checked: boolean) => {
     if (checked) {
-      setSelectedCourses(prev => [...prev, course]);
+      setSelectedCourses(prev => [...prev, courseId]);
     } else {
-      setSelectedCourses(prev => prev.filter(c => c !== course));
+      setSelectedCourses(prev => prev.filter(c => c !== courseId));
       // Remove group selection for this course
       setCourseGroups(prev => {
         const newGroups = { ...prev };
-        delete newGroups[course];
+        delete newGroups[courseId];
         return newGroups;
       });
     }

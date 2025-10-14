@@ -76,6 +76,18 @@ function analyzeEventSummary(summary: string): EventAnalysis {
     if (tmeMatch) group = tmeMatch[1];
   }
   
+  // Check for OIP-specific group patterns (Gr2, Gr3, etc.)
+  if (!group) {
+    const grMatch = summary.match(/gr(?:oupe)?\s*(\d+)/i);
+    if (grMatch) {
+      group = grMatch[1];
+      // If it's a group event but type not set, mark as 'other' with group
+      if (type === 'other') {
+        type = 'td'; // Treat Gr groups like TD groups
+      }
+    }
+  }
+  
   return {
     summary,
     course,
