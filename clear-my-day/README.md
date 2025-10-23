@@ -1,226 +1,138 @@
-# ClearMyDay - Personalized Sorbonne Calendar Filter
+# ClearMyDay
 
-> **Status**: ✅ Production Ready | **Deployment**: Ready for Vercel | **Last Updated**: Sept 28, 2025
+Personalised calendar subscriptions for Sorbonne University masters. The app connects to the university CalDAV servers, filters events down to the courses and TD/TME groups a student actually attends, and exposes the result as a subscription URL compatible with Apple, Google, and Outlook calendars.
 
-A web application that creates personalized calendar subscriptions from Sorbonne University's master calendars, filtering out 99.5% of calendar noise (4604→21 events).
-
-## 🚀 **Current Status: Production Ready**
-
-- ✅ **Multi-user support** with persistent Supabase storage
-- ✅ **Apple Calendar compatibility** with correct timezone handling
-- ✅ **Fast group detection** with 4-hour caching
-- ✅ **Reliable Sorbonne server integration** with proper timeout handling
-- ✅ **Preview system** to avoid database bloatter calendars, filtering out 99.5% of calendar noise (4604→21 events).
-
-## 🎯 What It Does
-
-Transform overwhelming university calendars into clean, personalized feeds:
-- ✅ **Select your courses** from DAC, IMA, ANDROIDE masters
-- ✅ **Pick your TD/TME groups** (automatic detection + manual override)
-- ✅ **Generate subscription URL** for any calendar app
-- ✅ **Stay automatically updated** with upstream changes
-- ✅ **99.5% noise reduction** achieved (4604→21 events)
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Node.js 18+ 
-- npm or yarn
-
-### Installation
-
-```bash
-# Clone and install
-git clone <repository-url>
-cd clear-my-day
-npm install
-
-# Start development server
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) to use the application.
-
-## 📋 How to Use
-
-### Step 1: Select Your Masters
-Choose from:
-- **DAC** (Data, Apprentissage, Connaissances)
-- **IMA** (Informatique Médicale et Applications)  
-- **ANDROIDE** (Agents Distribués, Robotique, etc.)
-
-### Step 2: Pick Your Courses
-Select specific courses like:
-- DALAS, LRC, MLBDA (from DAC)
-- MAPSI (from IMA)
-- MOGPL (from ANDROIDE)
-
-### Step 3: Set Your Groups
-- **TD Group**: TD1, TD2, TD3, TD4, TD5, etc.
-- **TME Group**: TME A, TME B, TME C, etc.
-
-### Step 4: Preview & Generate
-- Preview your filtered calendar
-- Generate a subscription URL
-- Add to Apple Calendar, Google Calendar, or Outlook
-
-## 🏗️ Architecture
-
-**Frontend**: Next.js 15 + TypeScript + Tailwind CSS + React Big Calendar  
-**Backend**: Next.js API Routes + CalDAV Client + Supabase Storage  
-**Deployment**: Vercel (serverless) + Supabase (persistence)
-
-### Calendar Sources (Working)
-```
-DAC:      2176 events → CalDAV integration ✅
-IMA:      910 events  → CalDAV integration ✅  
-ANDROIDE: 1518 events → CalDAV integration ✅
-Total:    4604 events → Filtered to ~21 events per student
-```
-
-## 🛠️ API Endpoints (All Working ✅)
-
-- `POST /api/generate-calendar` - Create personalized calendar
-- `GET /api/calendar/[token]` - Serve ICS feeds (4604→21 events)
-- `GET /api/analyze-events` - Group detection from calendar data
-- `GET /api/health` - System health check
-
-## 📱 Calendar Client Setup
-
-### Apple Calendar
-1. Open Calendar app
-2. File → New Calendar Subscription  
-3. Paste subscription URL → Subscribe
-
-### Google Calendar
-1. Open Google Calendar
-2. Click "+" next to "Other calendars"
-3. Select "From URL" → Paste URL
-
-### Outlook
-1. Open Outlook Calendar
-2. Add Calendar → From Internet
-3. Paste URL → OK
-
-## 🚀 Deployment (Production Ready)
-
-### Environment Variables
-```bash
-# CalDAV Credentials (required)
-CALDAV_USERNAME=student.master
-CALDAV_PASSWORD=guest
-
-# Supabase (required for persistence)
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_key
-```
-
-### Deploy to Vercel
-1. Connect GitHub repo to Vercel
-2. Set environment variables in dashboard
-3. Deploy (automatic builds)
-
-## 📊 Performance (Achieved ✅)
-
-- ✅ **Setup time**: < 3 minutes
-- ✅ **Response time**: < 500ms  
-- ✅ **Event reduction**: 99.5% (4604→21 events)
-- ✅ **Calendar sources**: 3/3 working
-- ✅ **Recurring events**: Fixed timing issues
-
-## 🧪 Testing
-
-```bash
-# Run tests
-npm test
-
-# Type checking
-npm run type-check
-
-# Linting
-npm run lint
-
-# Health check
-curl http://localhost:3000/api/health
-```
-
-## 📁 Current Status
-
-**✅ Production Ready Components:**
-- `SimplifiedCalendarSelector` - Main UI (group detection working)
-- `WeeklyCalendarPreview` - Calendar with "Today" navigation
-- `FilteredEventsPreview` - Event list view
-
-**❌ Deprecated Components:**
-- `CalendarSelector`, `CalendarPreview`, `EventAnalyzer` (debug only)
-
-## 📁 Project Structure
-
-```
-src/
-├── app/
-│   ├── page.tsx                    # Main UI
-│   └── api/
-│       ├── calendar/[token]/       # ICS feed generator
-│       ├── fetch-calendar/         # Calendar fetcher
-│       └── health/                 # Health check
-├── components/
-│   ├── CalendarSelector.tsx        # Master/course selection
-│   └── CalendarPreview.tsx         # Event preview
-└── lib/
-    ├── caldav-client.ts            # CalDAV integration
-    ├── calendar-parser.ts          # Filtering logic
-    ├── ics-generator.ts            # ICS creation
-    ├── types.ts                    # TypeScript interfaces
-    └── constants.ts                # Configuration
-```
-
-## 🔒 Security Features
-
-- ✅ Rate limiting (10 req/min per IP)
-- ✅ Token-based calendar access
-- ✅ No credentials in URLs
-- ✅ CORS protection
-- ✅ Input validation
-
-## 🐛 Troubleshooting
-
-### Calendar Not Loading
-- Check network connection
-- Verify Sorbonne calendar availability
-- Check browser console for errors
-
-### Events Not Filtering
-- Verify group names match calendar data
-- Check course code spelling
-- Try broader filter criteria
-
-### Subscription Not Working
-- Ensure calendar app supports ICS subscriptions
-- Check subscription URL is accessible
-- Verify calendar app refresh settings
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
-
-## 📄 License
-
-MIT License - see LICENSE file for details
-
-## 🎓 Sorbonne Specific
-
-This prototype is optimized for Sorbonne University M1 programs:
-- **DAC**: DALAS, LRC, MLBDA courses
-- **IMA**: MAPSI course  
-- **ANDROIDE**: MOGPL course
-
-Default groups: TD5, TME B (easily customizable)
+- **Status:** Production-ready
+- **Stack:** Next.js 15, TypeScript, Supabase, Tailwind, React Big Calendar
+- **Calendars supported:** DAC, IMA, ANDROIDE (extensible via `src/lib/sorbonne-masters.ts`)
 
 ---
 
-**Built for Sorbonne students, by Sorbonne students** 🎓
+## Feature Overview
+
+- **Interactive selection** of masters, courses, and TD/TME groups with automatic group detection (manual override supported).
+- **Preview mode** that fetches events without persisting tokens so Supabase stays clean.
+- **Subscription URLs** served by `GET /api/calendar/[token]`, generating on-the-fly ICS feeds that stay within 99.5 % noise reduction (≈21 events per student).
+- **Robust recurring-event handling** including `RECURRENCE-ID`, `EXDATE`, and proper Europe/Paris timezone management.
+- **Production safeguards:** rate limiting, Supabase-backed storage, ETag support, and 6‑hour CalDAV caching per master combination.
+
+---
+
+## System Architecture
+
+```
+Calendar app → /api/calendar/[token] → Supabase calendar_tokens →
+  caldav-client (CalDAV REPORT with academic year range) →
+  calendar-parser (filters, applies EXDATE / RECURRENCE-ID) →
+  ics-generator (final ICS response)
+```
+
+- `src/lib/caldav-client.ts` — Fetches CalDAV data using REPORT requests limited to the current + next academic year. Results are cached in Supabase (`caldav_cache`) for 6 hours, shared across all users requesting the same master combination.
+- `src/lib/calendar-parser.ts` — Filters events, expands recurring series, and honours `RECURRENCE-ID` and `EXDATE` overrides.
+- `src/lib/ics-generator.ts` — Emits RFC 5545 compliant feeds with stable UIDs, ETags, and Europe/Paris timezone definitions.
+- `src/lib/persistent-storage.ts` — Reads/writes subscription configs in Supabase with in-memory fallback.
+
+### Data & Caching
+
+- **CalDAV cache:** Supabase table `caldav_cache` keyed by sorted master list (e.g., `caldav-DAC-IMA`). Entries expire after 6 hours and store parsed events to avoid repeated 4 600‑event downloads.
+- **HTTP caching:** `Cache-Control: public, max-age=21600, s-maxage=43200, stale-while-revalidate=172800` plus deterministic ETags (`"<token>-<createdAt>"`). Most repeat hits return `304 Not Modified`.
+- **Academic year filter:** CalDAV REPORT spans September of the current academic year through August two years later, automatically rolling each September.
+
+### Repository Layout
+
+```
+clear-my-day/
+├── app/
+│   ├── page.tsx                 # Client entry point
+│   └── api/                     # API routes
+│       ├── calendar/[token]/      # Serves ICS calendar subscriptions
+│       ├── generate-calendar/     # Creates persistent calendar tokens
+│       ├── analyze-events/        # Powers automatic group detection
+│       └── health/                # System health check
+├── components/                  # UI components (SimplifiedCalendarSelector, previews)
+├── lib/                         # CalDAV client, parsers, Supabase storage helpers
+├── docs/                        # Operational and domain documentation
+├── public/                      # Static assets (favicon, logo)
+└── supabase-*.sql               # Schema definitions for required tables
+```
+
+### Security
+
+- Token-based access for `GET /api/calendar/[token]` (unguessable UUIDs stored in Supabase).
+- Rate limiting (≈60 requests/hour/IP at runtime) and HSTS/CORS headers.
+- No manual cache invalidation endpoint is exposed; cache refresh relies on expiry to avoid abuse.
+
+---
+
+## Local Development
+
+### Prerequisites
+- Node.js 18+
+- npm or pnpm
+- Supabase project (optional for local tests; the code falls back to in-memory storage)
+
+### Install & Run
+```bash
+git clone <repository-url>
+cd clear-my-day/clear-my-day
+npm install
+npm run dev
+```
+
+Visit `http://localhost:3000`.
+
+### Useful Commands
+```bash
+npm run lint        # ESLint
+npm run test        # Jest/Vitest (if configured)
+npm run build       # Production build check
+```
+
+### Operational Endpoints
+
+- `GET /api/health` — simple probe used by monitoring and deployment checks (returns 200 on success).
+- `/api/calendar/[token]` — primary ICS feed endpoint (requires valid token).
+
+---
+
+## Deployment Guide (Vercel + Supabase)
+
+1. **Environment variables** (set in both local `.env` and Vercel dashboard):
+   ```bash
+   CALDAV_USERNAME=student.master
+   CALDAV_PASSWORD=guest
+   SUPABASE_URL=...
+   SUPABASE_ANON_KEY=...
+   SUPABASE_SERVICE_ROLE_KEY=...   # Optional but handy for admin tasks
+   RATE_LIMIT_REDIS_URL=...        # Optional if rate limit store is external
+   ```
+2. **Supabase schema:** run `supabase-calendar-tokens-schema.sql` and `supabase-caldav-cache-schema.sql` (adds `calendar_tokens`, `caldav_cache`, and helper indexes/cleanup function).
+3. **Deploy:** push to the main branch; Vercel will build with `npm run build`. Verify `GET /api/health` returns `200`.
+
+### Operations Checklist
+- Monitor Vercel logs for `✅ CalDAV cache HIT` vs `❌ MISS` messages.
+- Periodically prune or archive unused calendar tokens older than 30 days (script in `persistent-storage.ts`).
+- Keep an eye on CPU minutes; target <15 minutes/month thanks to caching.
+
+**CPU profile:** With 6‑hour CalDAV caching and HTTP caching headers in place, typical usage stays below 0.5 CPU minutes per user per month (≈15 minutes total for ~200 users on the free Vercel tier).
+
+---
+
+## Troubleshooting & Known Limitations
+
+- **Calendar shows stale events:** caches expire after 6 hours; Apple/Google may additionally cache for 1‑24 hours. Advise users to refresh or wait for expiry.
+- **OIP/INOIP events missing:** ensure the relevant master is selected; parser recognises OIP and applies group filtering (`Groupe`, `Gr`, `TD`, `TME`).
+- **Sorbonne network blocks requests:** see `../SORBONNE_FIREWALL_ISSUE.md` for the mitigation summary and contact template.
+- **Supabase outage:** the service falls back to in-memory configs until Supabase reconnects; tokens created during downtime will be lost.
+
+---
+
+## Further Reading
+
+- `../CHANGELOG.md` — condensed history of major fixes and architecture shifts.
+- `../SORBONNE_FIREWALL_ISSUE.md` — notes on university firewall behaviour and an email template for IT support.
+- Source modules contain inline comments outlining key parsing and caching logic.
+
+---
+
+**Built for Sorbonne students, by Sorbonne students.** 🎓

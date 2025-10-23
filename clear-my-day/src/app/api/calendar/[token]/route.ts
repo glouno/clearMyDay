@@ -101,6 +101,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         .flatMap(result => result.events);
 
       // Cache the CalDAV response for 6 hours
+      // Events are typically updated 1+ days in advance, so 6 hour lag is acceptable
       if (supabase && allEvents.length > 0) {
         try {
           const expiresAt = new Date();
@@ -115,8 +116,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
               expires_at: expiresAt.toISOString()
             });
 
-          console.log(`💾 Cached CalDAV response for ${cacheKey}`);
-        } catch (cacheError) {
+          console.log(`💾 Cached CalDAV response for ${cacheKey} (expires in 6 hours)`);
+        } catch (cacheError: unknown) {
           console.warn('Failed to cache CalDAV response:', cacheError);
         }
       }

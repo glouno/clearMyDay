@@ -407,26 +407,57 @@ export class CalendarParser {
 
   /**
    * Expand recurring events within a date range
+   * Properly handles RECURRENCE-ID exceptions and EXDATE exclusions
    */
   expandRecurringEvents(events: CalendarEvent[], dateRange: { start: Date; end: Date }): CalendarEvent[] {
     const expandedEvents: CalendarEvent[] = [];
-
+    
+    // Group events by UID to identify recurring events and their exceptions
+    const eventsByUID = new Map<string, { base?: CalendarEvent; exceptions: CalendarEvent[] }>();
+    
     events.forEach(event => {
-      if (!event.rrule) {
-        // Non-recurring event
-        expandedEvents.push(event);
+      if (!eventsByUID.has(event.uid)) {
+        eventsByUID.set(event.uid, { exceptions: [] });
+      }
+      
+      const group = eventsByUID.get(event.uid)!;
+      
+      if (event.recurrenceId) {
+        // This is an exception to a recurring event
+        group.exceptions.push(event);
+      } else {
+        // This is the base event (recurring or not)
+        group.base = event;
+      }
+    });
+    
+    // Process each event group
+    eventsByUID.forEach((group) => {
+      const baseEvent = group.base;
+      
+      if (!baseEvent) {
+        // Only exceptions exist (orphaned), include them anyway
+        expandedEvents.push(...group.exceptions);
         return;
       }
-
-      // For now, we'll handle basic recurring events
-      // In a production app, you'd want to use a proper RRULE library
+      
+      if (!baseEvent.rrule) {
+        // Non-recurring event, just include it
+        expandedEvents.push(baseEvent);
+        // Include any exceptions (though this would be unusual)
+        expandedEvents.push(...group.exceptions);
+        return;
+      }
+      
+      // Recurring event - expand it
       try {
-        const occurrences = this.generateRecurrenceOccurrences(event, dateRange);
+        const occurrences = this.generateRecurrenceOccurrences(baseEvent, dateRange, group.exceptions);
         expandedEvents.push(...occurrences);
       } catch (error) {
-        console.warn('Failed to expand recurring event:', event.uid, error);
-        // Include original event as fallback
-        expandedEvents.push(event);
+        console.warn('Failed to expand recurring event:', baseEvent.uid, error);
+        // Include base event and exceptions as fallback
+        expandedEvents.push(baseEvent);
+        expandedEvents.push(...group.exceptions);
       }
     });
 
@@ -435,10 +466,12 @@ export class CalendarParser {
 
   /**
    * Generate occurrences for a recurring event using RRULE library
+   * Handles EXDATE exclusions and RECURRENCE-ID exceptions
    */
   private generateRecurrenceOccurrences(
     event: CalendarEvent, 
-    dateRange: { start: Date; end: Date }
+    dateRange: { start: Date; end: Date },
+    exceptions: CalendarEvent[] = []
   ): CalendarEvent[] {
     const occurrences: CalendarEvent[] = [];
     
@@ -455,20 +488,65 @@ export class CalendarParser {
       const eventEnd = new Date(event.end);
       const duration = eventEnd.getTime() - eventStart.getTime();
       
+      // Build a set of exception dates (from EXDATE) for quick lookup
+      const exdateSet = new Set<string>();
+      if (event.exdate && event.exdate.length > 0) {
+        event.exdate.forEach(exd => {
+          const exdDate = new Date(exd);
+          // Normalize to date string for comparison (ignore time precision issues)
+          exdateSet.add(exdDate.toISOString().split('T')[0] + 'T' + 
+                        String(exdDate.getHours()).padStart(2, '0') + ':' +
+                        String(exdDate.getMinutes()).padStart(2, '0'));
+        });
+      }
+      
+      // Build a map of exception events by their recurrence date for quick lookup
+      const exceptionMap = new Map<string, CalendarEvent>();
+      exceptions.forEach(exc => {
+        if (exc.recurrenceId) {
+          const excDate = new Date(exc.recurrenceId);
+          const key = excDate.toISOString().split('T')[0] + 'T' + 
+                      String(excDate.getHours()).padStart(2, '0') + ':' +
+                      String(excDate.getMinutes()).padStart(2, '0');
+          exceptionMap.set(key, exc);
+        }
+      });
+      
       // Generate occurrences within the date range
       const occurrenceDates = rrule.between(dateRange.start, dateRange.end, true);
       
       occurrenceDates.forEach((occurrenceDate: Date, index: number) => {
+        // Create normalized key for this occurrence
+        const occurrenceKey = occurrenceDate.toISOString().split('T')[0] + 'T' + 
+                              String(occurrenceDate.getHours()).padStart(2, '0') + ':' +
+                              String(occurrenceDate.getMinutes()).padStart(2, '0');
+        
+        // Check if this occurrence is in EXDATE (should be excluded)
+        if (exdateSet.has(occurrenceKey)) {
+          console.log(`Excluding occurrence ${occurrenceKey} from ${event.uid} due to EXDATE`);
+          return; // Skip this occurrence
+        }
+        
+        // Check if this occurrence has an exception (modified event)
+        if (exceptionMap.has(occurrenceKey)) {
+          const exceptionEvent = exceptionMap.get(occurrenceKey)!;
+          console.log(`Using exception for occurrence ${occurrenceKey} from ${event.uid}`);
+          occurrences.push(exceptionEvent);
+          return; // Use the exception instead of the regular occurrence
+        }
+        
+        // Regular occurrence - create it
         const occurrenceEnd = new Date(occurrenceDate.getTime() + duration);
         
-        // Create a new event for each occurrence
         const occurrence: CalendarEvent = {
           ...event,
           uid: `${event.uid}-occurrence-${index}`,
           start: occurrenceDate.toISOString(),
           end: occurrenceEnd.toISOString(),
-          // Remove rrule from individual occurrences
-          rrule: undefined
+          // Remove rrule and exdate from individual occurrences
+          rrule: undefined,
+          exdate: undefined,
+          recurrenceId: undefined
         };
         
         occurrences.push(occurrence);

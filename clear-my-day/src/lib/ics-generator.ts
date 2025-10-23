@@ -102,6 +102,13 @@ export class ICSGenerator {
       lines.push(`RRULE:${fixedRrule}`);
     }
     
+    // Add exception dates (EXDATE) if present
+    if (event.exdate && event.exdate.length > 0) {
+      // Group EXDATE entries if there are multiple (RFC 5545 allows comma-separated list)
+      const exdateStrings = event.exdate.map(exd => this.formatDateTime(new Date(exd)));
+      lines.push(`EXDATE;TZID=Europe/Paris:${exdateStrings.join(',')}`);
+    }
+    
     // Add recurrence ID if present
     if (event.recurrenceId) {
       lines.push(`RECURRENCE-ID;TZID=Europe/Paris:${this.formatDateTime(event.recurrenceId)}`);

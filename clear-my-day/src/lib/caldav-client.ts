@@ -255,6 +255,21 @@ class CalDAVClient {
             continue;
           }
 
+          // Parse EXDATE (exception dates) - node-ical returns them as an array or object
+          let exdates: Date[] | undefined = undefined;
+          if (event.exdate) {
+            if (Array.isArray(event.exdate)) {
+              exdates = event.exdate.map((d: Date | string | number) => new Date(d));
+            } else if (typeof event.exdate === 'object') {
+              // Sometimes exdate is an object with date keys
+              const exdateValues = Object.values(event.exdate) as (Date | string | number)[];
+              exdates = exdateValues.map((d) => new Date(d));
+            } else {
+              // Single exdate
+              exdates = [new Date(event.exdate)];
+            }
+          }
+
           const calendarEvent: CalendarEvent = {
             uid: event.uid || key,
             summary: event.summary,
@@ -264,7 +279,8 @@ class CalDAVClient {
             location: event.location || undefined,
             categories: undefined, // Categories not reliably available in node-ical
             rrule: event.rrule ? event.rrule.toString() : undefined,
-            recurrenceId: event.recurrenceid ? new Date(event.recurrenceid) : undefined
+            recurrenceId: event.recurrenceid ? new Date(event.recurrenceid) : undefined,
+            exdate: exdates
           };
 
           events.push(calendarEvent);

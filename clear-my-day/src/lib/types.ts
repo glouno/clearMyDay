@@ -10,6 +10,7 @@ export interface CalendarEvent {
   categories?: string[];
   rrule?: string;
   recurrenceId?: Date;
+  exdate?: Date[]; // Exception dates - dates when recurring event should NOT occur
 }
 
 export interface FilterConfig {
