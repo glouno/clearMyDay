@@ -97,16 +97,14 @@ export class ICSGenerator {
     
     // Add recurrence rule if present
     if (event.rrule) {
-      // Fix RRULE timezone issues for Apple Calendar compatibility
-      const fixedRrule = this.fixRruleTimezone(event.rrule);
-      lines.push(`RRULE:${fixedRrule}`);
+      const normalized = event.rrule.trim().replace(/^RRULE:/i, '');
+      lines.push(`RRULE:${normalized}`);
     }
     
     // Add exception dates (EXDATE) if present
     if (event.exdate && event.exdate.length > 0) {
-      // Group EXDATE entries if there are multiple (RFC 5545 allows comma-separated list)
-      const exdateStrings = event.exdate.map(exd => this.formatDateTime(new Date(exd)));
-      lines.push(`EXDATE;TZID=Europe/Paris:${exdateStrings.join(',')}`);
+      const entries = event.exdate.map(date => this.formatDateTime(new Date(date)));
+      lines.push(`EXDATE;TZID=Europe/Paris:${entries.join(',')}`);
     }
     
     // Add recurrence ID if present

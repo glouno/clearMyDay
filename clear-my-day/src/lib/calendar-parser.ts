@@ -2,15 +2,183 @@
 
 import { CalendarEvent, FilterConfig, GroupDetectionResult } from './types';
 import { GROUP_PATTERNS, COURSE_PATTERNS, APP_CONFIG } from './constants';
-import { RRule } from 'rrule';
+import { RRule, rrulestr } from 'rrule';
 
 export class CalendarParser {
+  /**
+   * Extract cancelled/rescheduled dates from event summaries
+   * Parses patterns like "( report du 23/10 )" or "( séance annulée et reportée au 13/11 )"
+   * Returns the date that was cancelled (e.g., "23/10" -> Date(2025-10-23))
+   */
+  private extractCancelledDate(summary: string, description?: string): Date | null {
+    const text = `${summary} ${description || ''}`;
+    
+    // Match patterns like "report du 23/10", "annulée et reportée au 23/10", etc.
+    const patterns = [
+      /report.*?du\s+(\d{1,2})\/(\d{1,2})/i,
+      /annulée.*?(\d{1,2})\/(\d{1,2})/i,
+      /reporté.*?du\s+(\d{1,2})\/(\d{1,2})/i,
+    ];
+    
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match) {
+        const day = parseInt(match[1], 10);
+        const month = parseInt(match[2], 10);
+        
+        // Determine the year based on the month (handle academic year Sept-Aug)
+        const now = new Date();
+        const currentMonth = now.getMonth() + 1; // 1-12
+        const currentYear = now.getFullYear();
+        
+        // If month is Sept-Dec, use current year if we're in Sept-Dec, otherwise use current year
+        // If month is Jan-Aug, use current year if we're past that month, otherwise use current year
+        let year = currentYear;
+        if (month >= 9) {
+          // Sept-Dec: use current year if we're in Sept-Dec or later months
+          if (currentMonth < 9) {
+            year = currentYear - 1;
+          }
+        } else {
+          // Jan-Aug: use current year if we're before Sept
+          if (currentMonth >= 9) {
+            year = currentYear + 1;
+          }
+        }
+        
+        try {
+          // Use midday to avoid timezone boundary issues when converting to ISO string
+          const cancelledDate = new Date(year, month - 1, day, 12, 0, 0);
+          if (!isNaN(cancelledDate.getTime())) {
+            return cancelledDate;
+          }
+        } catch {
+          continue;
+        }
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Normalize recurring events without expanding them.
+   * - Keeps base RRULE events intact
+   * - Preserves/extends EXDATE lists using RECURRENCE-ID exception entries
+   * - Drops cancelled exceptions ("annulée") while keeping rescheduled ones
+   */
+  private expandRecurringEvents(events: CalendarEvent[]): CalendarEvent[] {
+    const normalized: CalendarEvent[] = [];
+
+    const makeKey = (date: Date): string => {
+      const dt = new Date(date);
+      const pad = (value: number) => value.toString().padStart(2, '0');
+      return [
+        dt.getFullYear(),
+        pad(dt.getMonth() + 1),
+        pad(dt.getDate())
+      ].join('-') + `T${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}`;
+    };
+
+    const isCancelledException = (event: CalendarEvent): boolean => {
+      const text = `${event.summary} ${event.description || ''}`.toLowerCase();
+      return /annul[eé]e/.test(text);
+    };
+
+    const groups = new Map<string, { base?: CalendarEvent; exceptions: CalendarEvent[] }>();
+
+    events.forEach(event => {
+      if (!groups.has(event.uid)) {
+        groups.set(event.uid, { exceptions: [] });
+      }
+      const entry = groups.get(event.uid)!;
+
+      if (event.recurrenceId) {
+        entry.exceptions.push(event);
+        return;
+      }
+
+      if (!entry.base) {
+        entry.base = event;
+        return;
+      }
+
+      // Multiple non-recurring events with same UID: pass through
+      normalized.push(event);
+    });
+
+    for (const { base, exceptions } of groups.values()) {
+      if (!base) {
+        exceptions.forEach(exception => {
+          if (!isCancelledException(exception)) {
+            normalized.push({ ...exception, rrule: undefined, exdate: undefined });
+          }
+        });
+        continue;
+      }
+
+      if (!base.rrule) {
+        normalized.push(base);
+        exceptions.forEach(exception => {
+          if (!isCancelledException(exception)) {
+            normalized.push({ ...exception, rrule: undefined, exdate: undefined });
+          }
+        });
+        continue;
+      }
+
+      const exdateMap = new Map<string, Date>();
+
+      if (base.exdate && base.exdate.length > 0) {
+        base.exdate.forEach(ex => {
+          const date = new Date(ex);
+          exdateMap.set(makeKey(date), date);
+        });
+      }
+
+      const preservedExceptions: CalendarEvent[] = [];
+
+      exceptions.forEach(exception => {
+        if (!exception.recurrenceId) {
+          preservedExceptions.push({ ...exception, rrule: undefined, exdate: undefined });
+          return;
+        }
+
+        const occurrenceDate = new Date(exception.recurrenceId);
+        if (isNaN(occurrenceDate.getTime())) {
+          preservedExceptions.push({ ...exception, rrule: undefined, exdate: undefined });
+          return;
+        }
+
+        if (isCancelledException(exception)) {
+          exdateMap.set(makeKey(occurrenceDate), occurrenceDate);
+          return;
+        }
+
+        preservedExceptions.push({ ...exception, rrule: undefined, exdate: undefined });
+      });
+
+      const updatedBase: CalendarEvent = {
+        ...base,
+        exdate: Array.from(exdateMap.values()).sort((a, b) => a.getTime() - b.getTime())
+      };
+
+      normalized.push(updatedBase);
+      preservedExceptions.forEach(exception => normalized.push(exception));
+    }
+
+    return normalized;
+  }
+
   /**
    * Filter events based on the provided configuration
    */
   filterEvents(events: CalendarEvent[], filter: FilterConfig): CalendarEvent[] {
-    return events.filter(event => {
-      // Date range filter
+    // Normalize recurring events while preserving RRULE/EXDATE semantics
+    const expandedEvents = this.expandRecurringEvents(events);
+    
+    return expandedEvents.filter(event => {
+      // Date range filter (handles RRULE occurrences without expansion)
       if (!this.isEventInDateRange(event, filter.dateRange)) {
         return false;
       }
@@ -115,11 +283,21 @@ export class CalendarParser {
   private isEventInDateRange(event: CalendarEvent, dateRange: { start: Date; end: Date }): boolean {
     const eventStart = new Date(event.start);
     const eventEnd = new Date(event.end);
-    
-    // Event overlaps with date range if:
-    // - Event starts before range ends AND
-    // - Event ends after range starts
-    return eventStart < dateRange.end && eventEnd > dateRange.start;
+
+    if (!event.rrule) {
+      return eventStart < dateRange.end && eventEnd > dateRange.start;
+    }
+
+    try {
+      const rule = rrulestr(event.rrule, { dtstart: eventStart });
+      // For RRULE events, check if there's ANY occurrence within the date range
+      // We use 'between' to check if any occurrences fall within the window
+      const occurrences = rule.between(dateRange.start, dateRange.end, true);
+      return occurrences.length > 0;
+    } catch (error) {
+      console.warn(`⚠️ Failed to evaluate RRULE date range for ${event.uid}:`, error);
+      return eventStart < dateRange.end && eventEnd > dateRange.start;
+    }
   }
 
   /**
@@ -403,162 +581,6 @@ export class CalendarParser {
       reductionPercent,
       meetsTarget: reductionPercent >= 80 // From success metrics
     };
-  }
-
-  /**
-   * Expand recurring events within a date range
-   * Properly handles RECURRENCE-ID exceptions and EXDATE exclusions
-   */
-  expandRecurringEvents(events: CalendarEvent[], dateRange: { start: Date; end: Date }): CalendarEvent[] {
-    const expandedEvents: CalendarEvent[] = [];
-    
-    // Group events by UID to identify recurring events and their exceptions
-    const eventsByUID = new Map<string, { base?: CalendarEvent; exceptions: CalendarEvent[] }>();
-    
-    events.forEach(event => {
-      if (!eventsByUID.has(event.uid)) {
-        eventsByUID.set(event.uid, { exceptions: [] });
-      }
-      
-      const group = eventsByUID.get(event.uid)!;
-      
-      if (event.recurrenceId) {
-        // This is an exception to a recurring event
-        group.exceptions.push(event);
-      } else {
-        // This is the base event (recurring or not)
-        group.base = event;
-      }
-    });
-    
-    // Process each event group
-    eventsByUID.forEach((group) => {
-      const baseEvent = group.base;
-      
-      if (!baseEvent) {
-        // Only exceptions exist (orphaned), include them anyway
-        expandedEvents.push(...group.exceptions);
-        return;
-      }
-      
-      if (!baseEvent.rrule) {
-        // Non-recurring event, just include it
-        expandedEvents.push(baseEvent);
-        // Include any exceptions (though this would be unusual)
-        expandedEvents.push(...group.exceptions);
-        return;
-      }
-      
-      // Recurring event - expand it
-      try {
-        const occurrences = this.generateRecurrenceOccurrences(baseEvent, dateRange, group.exceptions);
-        expandedEvents.push(...occurrences);
-      } catch (error) {
-        console.warn('Failed to expand recurring event:', baseEvent.uid, error);
-        // Include base event and exceptions as fallback
-        expandedEvents.push(baseEvent);
-        expandedEvents.push(...group.exceptions);
-      }
-    });
-
-    return expandedEvents;
-  }
-
-  /**
-   * Generate occurrences for a recurring event using RRULE library
-   * Handles EXDATE exclusions and RECURRENCE-ID exceptions
-   */
-  private generateRecurrenceOccurrences(
-    event: CalendarEvent, 
-    dateRange: { start: Date; end: Date },
-    exceptions: CalendarEvent[] = []
-  ): CalendarEvent[] {
-    const occurrences: CalendarEvent[] = [];
-    
-    if (!event.rrule) {
-      return [event];
-    }
-
-    try {
-      // Parse the RRULE string
-      const rrule = RRule.fromString(event.rrule);
-      
-      // Get the start date from the event
-      const eventStart = new Date(event.start);
-      const eventEnd = new Date(event.end);
-      const duration = eventEnd.getTime() - eventStart.getTime();
-      
-      // Build a set of exception dates (from EXDATE) for quick lookup
-      const exdateSet = new Set<string>();
-      if (event.exdate && event.exdate.length > 0) {
-        event.exdate.forEach(exd => {
-          const exdDate = new Date(exd);
-          // Normalize to date string for comparison (ignore time precision issues)
-          exdateSet.add(exdDate.toISOString().split('T')[0] + 'T' + 
-                        String(exdDate.getHours()).padStart(2, '0') + ':' +
-                        String(exdDate.getMinutes()).padStart(2, '0'));
-        });
-      }
-      
-      // Build a map of exception events by their recurrence date for quick lookup
-      const exceptionMap = new Map<string, CalendarEvent>();
-      exceptions.forEach(exc => {
-        if (exc.recurrenceId) {
-          const excDate = new Date(exc.recurrenceId);
-          const key = excDate.toISOString().split('T')[0] + 'T' + 
-                      String(excDate.getHours()).padStart(2, '0') + ':' +
-                      String(excDate.getMinutes()).padStart(2, '0');
-          exceptionMap.set(key, exc);
-        }
-      });
-      
-      // Generate occurrences within the date range
-      const occurrenceDates = rrule.between(dateRange.start, dateRange.end, true);
-      
-      occurrenceDates.forEach((occurrenceDate: Date, index: number) => {
-        // Create normalized key for this occurrence
-        const occurrenceKey = occurrenceDate.toISOString().split('T')[0] + 'T' + 
-                              String(occurrenceDate.getHours()).padStart(2, '0') + ':' +
-                              String(occurrenceDate.getMinutes()).padStart(2, '0');
-        
-        // Check if this occurrence is in EXDATE (should be excluded)
-        if (exdateSet.has(occurrenceKey)) {
-          console.log(`Excluding occurrence ${occurrenceKey} from ${event.uid} due to EXDATE`);
-          return; // Skip this occurrence
-        }
-        
-        // Check if this occurrence has an exception (modified event)
-        if (exceptionMap.has(occurrenceKey)) {
-          const exceptionEvent = exceptionMap.get(occurrenceKey)!;
-          console.log(`Using exception for occurrence ${occurrenceKey} from ${event.uid}`);
-          occurrences.push(exceptionEvent);
-          return; // Use the exception instead of the regular occurrence
-        }
-        
-        // Regular occurrence - create it
-        const occurrenceEnd = new Date(occurrenceDate.getTime() + duration);
-        
-        const occurrence: CalendarEvent = {
-          ...event,
-          uid: `${event.uid}-occurrence-${index}`,
-          start: occurrenceDate.toISOString(),
-          end: occurrenceEnd.toISOString(),
-          // Remove rrule and exdate from individual occurrences
-          rrule: undefined,
-          exdate: undefined,
-          recurrenceId: undefined
-        };
-        
-        occurrences.push(occurrence);
-      });
-      
-      return occurrences;
-      
-    } catch (error) {
-      console.warn('Failed to parse RRULE for event:', event.uid, event.rrule, error);
-      // Fallback to original event
-      return [event];
-    }
   }
 
   /**
