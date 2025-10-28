@@ -116,18 +116,28 @@ export class ICSGenerator {
     // Add exception dates (EXDATE) if present
     if (event.exdate && Array.isArray(event.exdate) && event.exdate.length > 0) {
       try {
+        console.log(`[ICS-GEN] Processing EXDATE for ${event.uid}: ${event.exdate.length} entries`);
         const entries = event.exdate
           .map(date => {
             const d = date instanceof Date ? date : new Date(date);
-            return this.formatDateTime(d);
+            const formatted = this.formatDateTime(d);
+            console.log(`[ICS-GEN]   EXDATE entry: ${d.toISOString()} -> ${formatted}`);
+            return formatted;
           })
           .filter(entry => entry && entry.length > 0);
         
         if (entries.length > 0) {
+          console.log(`[ICS-GEN] Adding EXDATE line with ${entries.length} entries`);
           lines.push(`EXDATE;TZID=Europe/Paris:${entries.join(',')}`);
+        } else {
+          console.warn(`[ICS-GEN] No valid EXDATE entries after formatting for ${event.uid}`);
         }
       } catch (error) {
-        console.warn(`Failed to format EXDATE for event ${event.uid}:`, error);
+        console.error(`[ICS-GEN] Failed to format EXDATE for event ${event.uid}:`, error);
+      }
+    } else {
+      if (event.rrule) {
+        console.log(`[ICS-GEN] Event ${event.uid} has RRULE but no EXDATE (exdate: ${event.exdate}, isArray: ${Array.isArray(event.exdate)}, length: ${event.exdate?.length})`);
       }
     }
     
