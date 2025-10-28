@@ -97,14 +97,38 @@ export class ICSGenerator {
     
     // Add recurrence rule if present
     if (event.rrule) {
-      const normalized = event.rrule.trim().replace(/^RRULE:/i, '');
-      lines.push(`RRULE:${normalized}`);
+      // node-ical's rrule.toString() can return multiline string with DTSTART
+      // Extract only the FREQ line which is the actual recurrence rule
+      const rruleStr = event.rrule.trim();
+      const lines_arr = rruleStr.split('\n').map(l => l.trim());
+      
+      // Find the line that starts with RRULE: or contains FREQ=
+      const rruleLine = lines_arr.find(l => 
+        l.startsWith('RRULE:') || l.startsWith('FREQ=')
+      );
+      
+      if (rruleLine) {
+        const normalized = rruleLine.replace(/^RRULE:/i, '');
+        lines.push(`RRULE:${normalized}`);
+      }
     }
     
     // Add exception dates (EXDATE) if present
-    if (event.exdate && event.exdate.length > 0) {
-      const entries = event.exdate.map(date => this.formatDateTime(new Date(date)));
-      lines.push(`EXDATE;TZID=Europe/Paris:${entries.join(',')}`);
+    if (event.exdate && Array.isArray(event.exdate) && event.exdate.length > 0) {
+      try {
+        const entries = event.exdate
+          .map(date => {
+            const d = date instanceof Date ? date : new Date(date);
+            return this.formatDateTime(d);
+          })
+          .filter(entry => entry && entry.length > 0);
+        
+        if (entries.length > 0) {
+          lines.push(`EXDATE;TZID=Europe/Paris:${entries.join(',')}`);
+        }
+      } catch (error) {
+        console.warn(`Failed to format EXDATE for event ${event.uid}:`, error);
+      }
     }
     
     // Add recurrence ID if present
