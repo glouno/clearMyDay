@@ -258,15 +258,22 @@ class CalDAVClient {
           // Parse EXDATE (exception dates) - node-ical returns them as an array or object
           let exdates: Date[] | undefined = undefined;
           if (event.exdate) {
+            console.log(`[CALDAV] Parsing EXDATE for ${event.uid} (${event.summary}): type=${typeof event.exdate}, isArray=${Array.isArray(event.exdate)}`);
             if (Array.isArray(event.exdate)) {
               exdates = event.exdate.map((d: Date | string | number) => new Date(d));
+              console.log(`[CALDAV]   Parsed ${exdates.length} EXDATE entries from array`);
             } else if (typeof event.exdate === 'object') {
               // Sometimes exdate is an object with date keys
               const exdateValues = Object.values(event.exdate) as (Date | string | number)[];
               exdates = exdateValues.map((d) => new Date(d));
+              console.log(`[CALDAV]   Parsed ${exdates.length} EXDATE entries from object`);
             } else {
               // Single exdate
               exdates = [new Date(event.exdate)];
+              console.log(`[CALDAV]   Parsed 1 EXDATE entry from single value`);
+            }
+            if (exdates && exdates.length > 0) {
+              console.log(`[CALDAV]   EXDATE dates: ${exdates.map(d => d.toISOString()).join(', ')}`);
             }
           }
 

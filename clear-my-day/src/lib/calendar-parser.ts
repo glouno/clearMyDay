@@ -130,10 +130,15 @@ export class CalendarParser {
       const exdateMap = new Map<string, Date>();
 
       if (base.exdate && base.exdate.length > 0) {
+        console.log(`[PARSER] Base event ${base.uid} has ${base.exdate.length} EXDATE entries`);
         base.exdate.forEach(ex => {
           const date = new Date(ex);
-          exdateMap.set(makeKey(date), date);
+          const key = makeKey(date);
+          exdateMap.set(key, date);
+          console.log(`[PARSER]   Added EXDATE: ${date.toISOString()} (key: ${key})`);
         });
+      } else {
+        console.log(`[PARSER] Base event ${base.uid} (${base.summary}) has NO EXDATE (exdate: ${base.exdate})`);
       }
 
       const preservedExceptions: CalendarEvent[] = [];
