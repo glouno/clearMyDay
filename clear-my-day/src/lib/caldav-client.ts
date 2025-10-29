@@ -156,20 +156,27 @@ class CalDAVClient {
             continue;
           }
 
-          // Parse EXDATE (exception dates) - node-ical returns them as an array or object
+          // Parse EXDATE (exception dates) - node-ical returns them as an object with date keys
           let exdates: Date[] | undefined = undefined;
           if (event.exdate) {
             console.log(`[CALDAV] Parsing EXDATE for ${event.uid} (${event.summary}): type=${typeof event.exdate}, isArray=${Array.isArray(event.exdate)}`);
-            if (Array.isArray(event.exdate)) {
-              exdates = event.exdate.map((d: Date | string | number) => new Date(d));
-              console.log(`[CALDAV]   Parsed ${exdates.length} EXDATE entries from array`);
-            } else if (typeof event.exdate === 'object') {
-              // Sometimes exdate is an object with date keys
+            
+            // node-ical returns exdate as object with date keys (e.g., {'2025-10-20': Date, '2025-10-27': Date})
+            // Check if it's an object with string keys first
+            if (typeof event.exdate === 'object' && !Array.isArray(event.exdate)) {
               const exdateValues = Object.values(event.exdate) as (Date | string | number)[];
               exdates = exdateValues.map((d) => new Date(d));
               console.log(`[CALDAV]   Parsed ${exdates.length} EXDATE entries from object`);
+            } else if (typeof event.exdate === 'object' && Object.keys(event.exdate).length > 0) {
+              // Handle case where it's array-like but has string keys
+              const exdateValues = Object.values(event.exdate) as (Date | string | number)[];
+              exdates = exdateValues.map((d) => new Date(d));
+              console.log(`[CALDAV]   Parsed ${exdates.length} EXDATE entries from object keys`);
+            } else if (Array.isArray(event.exdate) && event.exdate.length > 0) {
+              exdates = event.exdate.map((d: Date | string | number) => new Date(d));
+              console.log(`[CALDAV]   Parsed ${exdates.length} EXDATE entries from array`);
             } else {
-              // Single exdate
+              // Single exdate or fallback
               exdates = [new Date(event.exdate)];
               console.log(`[CALDAV]   Parsed 1 EXDATE entry from single value`);
             }
