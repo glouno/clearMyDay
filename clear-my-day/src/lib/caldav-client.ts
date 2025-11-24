@@ -5,6 +5,7 @@ import { SORBONNE_CALENDARS, SORBONNE_AUTH, APP_CONFIG, HTTP_HEADERS, ERROR_MESS
 
 // Using node-ical for ICS parsing instead of xml2js
 import * as ical from 'node-ical';
+import type { VEvent } from 'node-ical';
 
 // interface FetchOptions { // Unused interface
 //   timeout?: number;
@@ -151,33 +152,39 @@ class CalDAVClient {
         const event = parsedData[key];
         
         if (event.type === 'VEVENT') {
+          type RecurrenceEntry = VEvent & {
+            recurrenceid?: Date | string | number;
+            recurrences?: Record<string, VEvent & { recurrenceid?: Date | string | number }>;
+          };
+
+          const vevent = event as RecurrenceEntry;
           // Skip events without required fields
-          if (!event.summary || !event.start || !event.end) {
+          if (!vevent.summary || !vevent.start || !vevent.end) {
             continue;
           }
 
           // Parse EXDATE (exception dates) for the base event only - node-ical returns them as an object with date keys
           let baseExdates: Date[] | undefined = undefined;
-          if (event.exdate) {
-            console.log(`[CALDAV] Parsing EXDATE for ${event.uid} (${event.summary}): type=${typeof event.exdate}, isArray=${Array.isArray(event.exdate)}`);
+          if (vevent.exdate) {
+            console.log(`[CALDAV] Parsing EXDATE for ${vevent.uid} (${vevent.summary}): type=${typeof vevent.exdate}, isArray=${Array.isArray(vevent.exdate)}`);
             
             // node-ical returns exdate as object with date keys (e.g., {'2025-10-20': Date, '2025-10-27': Date})
             // Check if it's an object with string keys first
-            if (typeof event.exdate === 'object' && !Array.isArray(event.exdate)) {
-              const exdateValues = Object.values(event.exdate) as (Date | string | number)[];
+            if (typeof vevent.exdate === 'object' && !Array.isArray(vevent.exdate)) {
+              const exdateValues = Object.values(vevent.exdate) as (Date | string | number)[];
               baseExdates = exdateValues.map((d) => new Date(d));
               console.log(`[CALDAV]   Parsed ${baseExdates.length} EXDATE entries from object`);
-            } else if (typeof event.exdate === 'object' && Object.keys(event.exdate).length > 0) {
+            } else if (typeof vevent.exdate === 'object' && Object.keys(vevent.exdate).length > 0) {
               // Handle case where it's array-like but has string keys
-              const exdateValues = Object.values(event.exdate) as (Date | string | number)[];
+              const exdateValues = Object.values(vevent.exdate) as (Date | string | number)[];
               baseExdates = exdateValues.map((d) => new Date(d));
               console.log(`[CALDAV]   Parsed ${baseExdates.length} EXDATE entries from object keys`);
-            } else if (Array.isArray(event.exdate) && event.exdate.length > 0) {
-              baseExdates = event.exdate.map((d: Date | string | number) => new Date(d));
+            } else if (Array.isArray(vevent.exdate) && vevent.exdate.length > 0) {
+              baseExdates = vevent.exdate.map((d: Date | string | number) => new Date(d));
               console.log(`[CALDAV]   Parsed ${baseExdates.length} EXDATE entries from array`);
             } else {
               // Single exdate or fallback
-              baseExdates = [new Date(event.exdate)];
+              baseExdates = [new Date(vevent.exdate)];
               console.log(`[CALDAV]   Parsed 1 EXDATE entry from single value`);
             }
             if (baseExdates && baseExdates.length > 0) {
@@ -185,24 +192,40 @@ class CalDAVClient {
             }
           }
 
-          const addCalendarEvent = (src: any, isRecurrence: boolean) => {
+          const toDate = (value: Date | string | number): Date => {
+            if (value instanceof Date) {
+              return value;
+            }
+            return new Date(value);
+          };
+
+          const formatRrule = (rruleValue: RecurrenceEntry['rrule']): string | undefined => {
+            if (!rruleValue) {
+              return undefined;
+            }
+            return typeof rruleValue === 'string' ? rruleValue : rruleValue.toString();
+          };
+
+          const addCalendarEvent = (src: RecurrenceEntry, isRecurrence: boolean) => {
             if (!src.summary || !src.start || !src.end) {
               return;
             }
 
             const calendarEvent: CalendarEvent = {
-              uid: src.uid || event.uid || key,
+              uid: src.uid || vevent.uid || key,
               summary: src.summary,
-              description: src.description || event.description || undefined,
-              start: new Date(src.start),
-              end: new Date(src.end),
-              location: src.location || event.location || undefined,
+              description: src.description || vevent.description || undefined,
+              start: toDate(src.start),
+              end: toDate(src.end),
+              location: src.location || vevent.location || undefined,
               categories: undefined, // Categories not reliably available in node-ical
-              rrule: src.rrule
-                ? src.rrule.toString()
-                : (!isRecurrence && event.rrule ? event.rrule.toString() : undefined),
+              rrule: formatRrule(
+                src.rrule
+                  ? src.rrule
+                  : (!isRecurrence ? vevent.rrule : undefined)
+              ),
               recurrenceId: isRecurrence && src.recurrenceid
-                ? new Date(src.recurrenceid)
+                ? toDate(src.recurrenceid)
                 : undefined,
               // Only the base event carries the EXDATE list; recurrence overrides are separate exceptions
               exdate: isRecurrence ? undefined : baseExdates
@@ -212,11 +235,11 @@ class CalDAVClient {
           };
 
           // Add base event
-          addCalendarEvent(event, false);
+          addCalendarEvent(vevent, false);
 
           // Add recurrence overrides from node-ical (RECURRENCE-ID entries)
-          if (event.recurrences && typeof event.recurrences === 'object') {
-            const recurrenceEntries = Object.values(event.recurrences) as any[];
+          if (vevent.recurrences && typeof vevent.recurrences === 'object') {
+            const recurrenceEntries = Object.values(vevent.recurrences) as RecurrenceEntry[];
             recurrenceEntries.forEach((recurrence) => {
               addCalendarEvent(recurrence, true);
             });

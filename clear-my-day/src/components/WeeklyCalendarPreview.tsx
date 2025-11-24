@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enUS } from 'date-fns/locale';
@@ -62,12 +62,12 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
     if (isMobile && currentView === 'work_week') {
       setCurrentView('day');
     }
-  }, [isMobile]); // Only run when isMobile changes, not on every currentView change
+  }, [currentView, isMobile]);
 
   // Function to navigate to today
-  const goToToday = () => {
+  const goToToday = useCallback(() => {
     setCurrentDate(new Date());
-  };
+  }, []);
 
   // Navigation functions
   const goToPrevious = () => {
@@ -99,14 +99,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
   };
 
   // Auto-load calendar when component mounts if autoLoad is true
-  useEffect(() => {
-    if (autoLoad && !hasAutoLoaded && selectedCourses.length > 0 && selectedMasters.length > 0) {
-      setHasAutoLoaded(true);
-      fetchEvents();
-    }
-  }, [autoLoad]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     if (selectedCourses.length === 0 || selectedMasters.length === 0) {
       setError('Please select at least one master and one course');
       return;
@@ -266,7 +259,14 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
     } finally {
       setLoading(false);
     }
-  };
+  }, [courseGroups, goToToday, selectedCourses, selectedMasters]);
+
+  useEffect(() => {
+    if (autoLoad && !hasAutoLoaded && selectedCourses.length > 0 && selectedMasters.length > 0) {
+      setHasAutoLoaded(true);
+      fetchEvents();
+    }
+  }, [autoLoad, fetchEvents, hasAutoLoaded, selectedCourses.length, selectedMasters.length]);
 
   // Removed unused parseICSToCalendarEvents function
 

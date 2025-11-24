@@ -68,7 +68,7 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
       setSelectedCourses(mappedCourses);
       setCourseGroups({});
     }
-  }, [masterLevel]);
+  }, [availableMasters, masterLevel]);
 
   // Update filter when selections change
   useEffect(() => {
@@ -95,7 +95,7 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
     };
 
     onFilterChange(filter);
-  }, [selectedMasters, selectedCourses, courseGroups]);
+  }, [courseGroups, onFilterChange, selectedCourses, selectedMasters]);
 
   // Debounced group detection
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);

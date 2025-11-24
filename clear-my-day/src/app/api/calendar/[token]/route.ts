@@ -87,7 +87,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           console.log(`✅ CalDAV cache HIT for ${cacheKey}`);
         }
       } catch (cacheError) {
-        console.log(`❌ CalDAV cache MISS for ${cacheKey}`);
+        console.log(`❌ CalDAV cache MISS for ${cacheKey}`, cacheError);
       }
     }
 

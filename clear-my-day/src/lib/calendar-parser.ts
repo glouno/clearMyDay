@@ -2,7 +2,7 @@
 
 import { CalendarEvent, FilterConfig, GroupDetectionResult } from './types';
 import { GROUP_PATTERNS, COURSE_PATTERNS, APP_CONFIG } from './constants';
-import { RRule, rrulestr } from 'rrule';
+import { rrulestr } from 'rrule';
 
 export class CalendarParser {
   /**
@@ -643,7 +643,7 @@ export class CalendarParser {
           errors.push('Date range cannot exceed 2 years');
         }
       }
-    } catch (error) {
+    } catch {
       errors.push('Invalid date range format');
     }
 
