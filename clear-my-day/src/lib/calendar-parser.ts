@@ -155,11 +155,16 @@ export class CalendarParser {
           return;
         }
 
+        // Always suppress the corresponding base RRULE occurrence for this exception
+        const key = makeKey(occurrenceDate);
+        exdateMap.set(key, occurrenceDate);
+
+        // If this is a pure cancellation ("annulée"), do not keep a separate event
         if (isCancelledException(exception)) {
-          exdateMap.set(makeKey(occurrenceDate), occurrenceDate);
           return;
         }
 
+        // Otherwise, keep the modified occurrence as an independent event (changed time/location, etc.)
         preservedExceptions.push({ ...exception, rrule: undefined, exdate: undefined });
       });
 

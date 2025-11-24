@@ -156,8 +156,8 @@ class CalDAVClient {
             continue;
           }
 
-          // Parse EXDATE (exception dates) - node-ical returns them as an object with date keys
-          let exdates: Date[] | undefined = undefined;
+          // Parse EXDATE (exception dates) for the base event only - node-ical returns them as an object with date keys
+          let baseExdates: Date[] | undefined = undefined;
           if (event.exdate) {
             console.log(`[CALDAV] Parsing EXDATE for ${event.uid} (${event.summary}): type=${typeof event.exdate}, isArray=${Array.isArray(event.exdate)}`);
             
@@ -165,40 +165,62 @@ class CalDAVClient {
             // Check if it's an object with string keys first
             if (typeof event.exdate === 'object' && !Array.isArray(event.exdate)) {
               const exdateValues = Object.values(event.exdate) as (Date | string | number)[];
-              exdates = exdateValues.map((d) => new Date(d));
-              console.log(`[CALDAV]   Parsed ${exdates.length} EXDATE entries from object`);
+              baseExdates = exdateValues.map((d) => new Date(d));
+              console.log(`[CALDAV]   Parsed ${baseExdates.length} EXDATE entries from object`);
             } else if (typeof event.exdate === 'object' && Object.keys(event.exdate).length > 0) {
               // Handle case where it's array-like but has string keys
               const exdateValues = Object.values(event.exdate) as (Date | string | number)[];
-              exdates = exdateValues.map((d) => new Date(d));
-              console.log(`[CALDAV]   Parsed ${exdates.length} EXDATE entries from object keys`);
+              baseExdates = exdateValues.map((d) => new Date(d));
+              console.log(`[CALDAV]   Parsed ${baseExdates.length} EXDATE entries from object keys`);
             } else if (Array.isArray(event.exdate) && event.exdate.length > 0) {
-              exdates = event.exdate.map((d: Date | string | number) => new Date(d));
-              console.log(`[CALDAV]   Parsed ${exdates.length} EXDATE entries from array`);
+              baseExdates = event.exdate.map((d: Date | string | number) => new Date(d));
+              console.log(`[CALDAV]   Parsed ${baseExdates.length} EXDATE entries from array`);
             } else {
               // Single exdate or fallback
-              exdates = [new Date(event.exdate)];
+              baseExdates = [new Date(event.exdate)];
               console.log(`[CALDAV]   Parsed 1 EXDATE entry from single value`);
             }
-            if (exdates && exdates.length > 0) {
-              console.log(`[CALDAV]   EXDATE dates: ${exdates.map(d => d.toISOString()).join(', ')}`);
+            if (baseExdates && baseExdates.length > 0) {
+              console.log(`[CALDAV]   EXDATE dates: ${baseExdates.map(d => d.toISOString()).join(', ')}`);
             }
           }
 
-          const calendarEvent: CalendarEvent = {
-            uid: event.uid || key,
-            summary: event.summary,
-            description: event.description || undefined,
-            start: new Date(event.start),
-            end: new Date(event.end),
-            location: event.location || undefined,
-            categories: undefined, // Categories not reliably available in node-ical
-            rrule: event.rrule ? event.rrule.toString() : undefined,
-            recurrenceId: event.recurrenceid ? new Date(event.recurrenceid) : undefined,
-            exdate: exdates
+          const addCalendarEvent = (src: any, isRecurrence: boolean) => {
+            if (!src.summary || !src.start || !src.end) {
+              return;
+            }
+
+            const calendarEvent: CalendarEvent = {
+              uid: src.uid || event.uid || key,
+              summary: src.summary,
+              description: src.description || event.description || undefined,
+              start: new Date(src.start),
+              end: new Date(src.end),
+              location: src.location || event.location || undefined,
+              categories: undefined, // Categories not reliably available in node-ical
+              rrule: src.rrule
+                ? src.rrule.toString()
+                : (!isRecurrence && event.rrule ? event.rrule.toString() : undefined),
+              recurrenceId: isRecurrence && src.recurrenceid
+                ? new Date(src.recurrenceid)
+                : undefined,
+              // Only the base event carries the EXDATE list; recurrence overrides are separate exceptions
+              exdate: isRecurrence ? undefined : baseExdates
+            };
+
+            events.push(calendarEvent);
           };
 
-          events.push(calendarEvent);
+          // Add base event
+          addCalendarEvent(event, false);
+
+          // Add recurrence overrides from node-ical (RECURRENCE-ID entries)
+          if (event.recurrences && typeof event.recurrences === 'object') {
+            const recurrenceEntries = Object.values(event.recurrences) as any[];
+            recurrenceEntries.forEach((recurrence) => {
+              addCalendarEvent(recurrence, true);
+            });
+          }
         }
       }
 

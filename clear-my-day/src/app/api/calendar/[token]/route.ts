@@ -113,7 +113,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
               id: cacheKey,
               masters: config.filter.masters,
               events: allEvents,
-              expires_at: expiresAt.toISOString()
+              expires_at: expiresAt.toISOString(),
+              updated_at: new Date().toISOString()
             });
 
           console.log(`💾 Cached CalDAV response for ${cacheKey} (expires in 6 hours)`);
