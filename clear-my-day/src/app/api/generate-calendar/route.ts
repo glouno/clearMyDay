@@ -48,6 +48,12 @@ export async function POST(request: NextRequest) {
       if (!saved) {
         console.warn('Failed to save to Supabase, but continuing with fallback storage');
       }
+    } else {
+      // Update stored config even when reusing a token, so dateRange doesn't become stale
+      const saved = await CalendarStorage.set(token, config);
+      if (!saved) {
+        console.warn('Failed to update config in Supabase, but continuing with existing token');
+      }
     }
 
     // Generate subscription URL

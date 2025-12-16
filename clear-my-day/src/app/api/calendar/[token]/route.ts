@@ -7,6 +7,7 @@ import { ICSGenerator } from '@/lib/ics-generator';
 import { CalendarParser } from '@/lib/calendar-parser';
 import { supabase } from '@/lib/supabase';
 import { CalendarEvent } from '@/lib/types';
+import { APP_CONFIG } from '@/lib/constants';
 
 // Rate limiting storage
 const rateLimitStorage = new Map<string, { count: number; resetTime: number }>();
@@ -129,12 +130,33 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Ensure filter has required groups property and convert dates for backward compatibility
+    const now = new Date();
+    const minimumWindow = {
+      start: new Date(now.getTime() - APP_CONFIG.DEFAULT_DATE_RANGE_PAST * 24 * 60 * 60 * 1000),
+      end: new Date(now.getTime() + APP_CONFIG.DEFAULT_DATE_RANGE_FUTURE * 24 * 60 * 60 * 1000)
+    };
+
+    let startDate = new Date(config.filter.dateRange.start);
+    let endDate = new Date(config.filter.dateRange.end);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || startDate >= endDate) {
+      startDate = minimumWindow.start;
+      endDate = minimumWindow.end;
+    } else {
+      if (startDate > minimumWindow.start) {
+        startDate = minimumWindow.start;
+      }
+      if (endDate < minimumWindow.end) {
+        endDate = minimumWindow.end;
+      }
+    }
+
     const filterWithGroups = {
       ...config.filter,
       groups: config.filter.groups || { td: '', tme: '' },
       dateRange: {
-        start: new Date(config.filter.dateRange.start),
-        end: new Date(config.filter.dateRange.end)
+        start: startDate,
+        end: endDate
       }
     };
 

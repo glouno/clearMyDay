@@ -31,7 +31,11 @@ export class ICSGenerator {
     
     // Events
     events.forEach(event => {
-      lines.push(...this.generateEvent(event));
+      try {
+        lines.push(...this.generateEvent(event));
+      } catch (error) {
+        console.error(`[ICS-GEN] Failed to generate VEVENT for ${event.uid} (${event.summary})`, error);
+      }
     });
     
     // Calendar footer
@@ -70,11 +74,22 @@ export class ICSGenerator {
    */
   private generateEvent(event: CalendarEvent): string[] {
     const lines: string[] = [];
+
+    const start = new Date(event.start);
+    const end = new Date(event.end);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      console.error(
+        `[ICS-GEN] Skipping event with invalid DTSTART/DTEND: ${event.uid} (${event.summary}) ` +
+          `start=${String(event.start)} end=${String(event.end)}`
+      );
+      return [];
+    }
     
     lines.push('BEGIN:VEVENT');
     lines.push(`UID:${event.uid}`);
-    lines.push(`DTSTART;TZID=Europe/Paris:${this.formatDateTime(new Date(event.start))}`);
-    lines.push(`DTEND;TZID=Europe/Paris:${this.formatDateTime(new Date(event.end))}`);
+    lines.push(`DTSTART;TZID=Europe/Paris:${this.formatDateTime(start)}`);
+    lines.push(`DTEND;TZID=Europe/Paris:${this.formatDateTime(end)}`);
     lines.push(`SUMMARY:${this.escapeText(event.summary)}`);
     
     if (event.description) {
@@ -116,18 +131,28 @@ export class ICSGenerator {
     // Add exception dates (EXDATE) if present
     if (event.exdate && Array.isArray(event.exdate) && event.exdate.length > 0) {
       try {
-        console.log(`[ICS-GEN] Processing EXDATE for ${event.uid}: ${event.exdate.length} entries`);
+        if (APP_CONFIG.DEBUG_LOGS) {
+          console.log(`[ICS-GEN] Processing EXDATE for ${event.uid}: ${event.exdate.length} entries`);
+        }
         const entries = event.exdate
           .map(date => {
             const d = date instanceof Date ? date : new Date(date);
+            if (isNaN(d.getTime())) {
+              console.warn(`[ICS-GEN] Skipping invalid EXDATE entry for ${event.uid}: ${String(date)}`);
+              return null;
+            }
             const formatted = this.formatDateTime(d);
-            console.log(`[ICS-GEN]   EXDATE entry: ${d.toISOString()} -> ${formatted}`);
+            if (APP_CONFIG.DEBUG_LOGS) {
+              console.log(`[ICS-GEN]   EXDATE entry: ${d.toISOString()} -> ${formatted}`);
+            }
             return formatted;
           })
-          .filter(entry => entry && entry.length > 0);
+          .filter((entry): entry is string => !!entry && entry.length > 0);
         
         if (entries.length > 0) {
-          console.log(`[ICS-GEN] Adding EXDATE line with ${entries.length} entries`);
+          if (APP_CONFIG.DEBUG_LOGS) {
+            console.log(`[ICS-GEN] Adding EXDATE line with ${entries.length} entries`);
+          }
           lines.push(`EXDATE;TZID=Europe/Paris:${entries.join(',')}`);
         } else {
           console.warn(`[ICS-GEN] No valid EXDATE entries after formatting for ${event.uid}`);
@@ -137,13 +162,19 @@ export class ICSGenerator {
       }
     } else {
       if (event.rrule) {
-        console.log(`[ICS-GEN] Event ${event.uid} has RRULE but no EXDATE (exdate: ${event.exdate}, isArray: ${Array.isArray(event.exdate)}, length: ${event.exdate?.length})`);
+        if (APP_CONFIG.DEBUG_LOGS) {
+          console.log(`[ICS-GEN] Event ${event.uid} has RRULE but no EXDATE (exdate: ${event.exdate}, isArray: ${Array.isArray(event.exdate)}, length: ${event.exdate?.length})`);
+        }
       }
     }
     
     // Add recurrence ID if present
     if (event.recurrenceId) {
-      lines.push(`RECURRENCE-ID;TZID=Europe/Paris:${this.formatDateTime(event.recurrenceId)}`);
+      if (isNaN(event.recurrenceId.getTime())) {
+        console.warn(`[ICS-GEN] Skipping invalid RECURRENCE-ID for ${event.uid}: ${String(event.recurrenceId)}`);
+      } else {
+        lines.push(`RECURRENCE-ID;TZID=Europe/Paris:${this.formatDateTime(event.recurrenceId)}`);
+      }
     }
     
     lines.push('END:VEVENT');
