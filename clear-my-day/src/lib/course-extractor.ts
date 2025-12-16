@@ -28,9 +28,31 @@ export function extractCourseFromSummaryDetailed(summary: string): { course: str
     return { course: null, matchedBy: null };
   }
 
-  const tokenMatch = summary.match(/\b([A-Z]{2,10})\b/);
-  if (tokenMatch) {
-    return { course: tokenMatch[1].toUpperCase(), matchedBy: 'FALLBACK_TOKEN' };
+  const excludeTokens = new Set([
+    'UM',
+    'MU',
+    'TD',
+    'TME',
+    'TP',
+    'COURS',
+    'EXAM',
+    'EXAMEN',
+    'SALLE',
+    'AMPHI',
+    'GROUPE',
+    'GROUP',
+    'GR'
+  ]);
+
+  const candidates = summary
+    .split(/[^A-Z]+/)
+    .map(t => t.trim())
+    .filter(t => t.length >= 2 && t.length <= 10)
+    .filter(t => /^[A-Z]{2,10}$/.test(t))
+    .filter(t => !excludeTokens.has(t));
+
+  if (candidates.length > 0) {
+    return { course: candidates[0].toUpperCase(), matchedBy: 'FALLBACK_TOKEN' };
   }
 
   return { course: null, matchedBy: null };
