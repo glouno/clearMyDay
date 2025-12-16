@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import { FilterConfig } from '@/lib/types';
 import { getConfirmedM1Masters, getConfirmedM2Masters } from '@/lib/sorbonne-masters';
@@ -24,7 +24,13 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
   const [generatedUrl, setGeneratedUrl] = useState('');
 
   // Get available masters based on selected level
-  const availableMasters = masterLevel === 'M1' ? getConfirmedM1Masters() : getConfirmedM2Masters();
+  // Memoized because getConfirmed*M*Masters() returns a new object each call.
+  // Without memoization, effects depending on availableMasters would run every render
+  // and reset checkbox state.
+  const availableMasters = useMemo(
+    () => (masterLevel === 'M1' ? getConfirmedM1Masters() : getConfirmedM2Masters()),
+    [masterLevel]
+  );
   
   // Get available courses based on selected masters with master context
   // For courses like OIP that appear in multiple masters, we need to show which master it belongs to
@@ -59,14 +65,17 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
   useEffect(() => {
     const firstMaster = Object.keys(availableMasters)[0];
     if (firstMaster) {
-      setSelectedMasters([firstMaster]);
       const firstMasterCourses = availableMasters[firstMaster].courses;
       // Map OIP to OIP-masterId for first course
       const mappedCourses = firstMasterCourses.length > 0 
         ? [firstMasterCourses[0] === 'OIP' ? `OIP-${firstMaster}` : firstMasterCourses[0]]
         : [];
-      setSelectedCourses(mappedCourses);
-      setCourseGroups({});
+
+      const arraysEqual = (a: string[], b: string[]) => a.length === b.length && a.every((value, index) => value === b[index]);
+
+      setSelectedMasters(prev => (arraysEqual(prev, [firstMaster]) ? prev : [firstMaster]));
+      setSelectedCourses(prev => (arraysEqual(prev, mappedCourses) ? prev : mappedCourses));
+      setCourseGroups(prev => (Object.keys(prev).length === 0 ? prev : {}));
     }
   }, [availableMasters, masterLevel]);
 

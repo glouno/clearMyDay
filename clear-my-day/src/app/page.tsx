@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import SimplifiedCalendarSelector from '@/components/SimplifiedCalendarSelector';
 import WeeklyCalendarPreview from '@/components/WeeklyCalendarPreview';
 import SorbonneWifiWarning from '@/components/SorbonneWifiWarning';
@@ -12,11 +12,11 @@ export default function Home() {
   const [selectedMasters, setSelectedMasters] = useState<('DAC' | 'IMA' | 'ANDROIDE')[]>([]);
   const [showWeeklyCalendar, setShowWeeklyCalendar] = useState(false);
 
-  const handleFilterChange = (filter: FilterConfig) => {
+  const handleFilterChange = useCallback((filter: FilterConfig) => {
     setSelectedMasters(filter.masters as ('DAC' | 'IMA' | 'ANDROIDE')[]);
     setSelectedCourses(filter.courses);
     setCourseGroups(filter.courseGroups || {});
-  };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
