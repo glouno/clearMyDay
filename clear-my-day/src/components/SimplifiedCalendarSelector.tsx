@@ -20,6 +20,8 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
   const [calendarName, setCalendarName] = useState<string>('My Sorbonne Calendar');
   const [availableGroups, setAvailableGroups] = useState<{[courseId: string]: string[]}>({});
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+  const [dynamicCoursesByMaster, setDynamicCoursesByMaster] = useState<{[masterId: string]: string[]}>({});
+  const [isLoadingCourseCatalog, setIsLoadingCourseCatalog] = useState(false);
   const [showUrlModal, setShowUrlModal] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState('');
 
@@ -31,27 +33,76 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
     () => (masterLevel === 'M1' ? getConfirmedM1Masters() : getConfirmedM2Masters()),
     [masterLevel]
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchCourseCatalog = async () => {
+      if (selectedMasters.length === 0) {
+        setDynamicCoursesByMaster({});
+        return;
+      }
+
+      setIsLoadingCourseCatalog(true);
+      try {
+        const response = await fetch(`/api/course-catalog?sources=${selectedMasters.join(',')}&minEvents=3`);
+        const data = await response.json();
+
+        if (!cancelled && data?.success && data?.data?.sources) {
+          const next: {[masterId: string]: string[]} = {};
+
+          Object.entries(data.data.sources).forEach(([source, sourceResult]) => {
+            const result = sourceResult as { success?: boolean; discoveredCourses?: unknown };
+            if (result?.success && Array.isArray(result?.discoveredCourses)) {
+              next[source] = result.discoveredCourses;
+            }
+          });
+
+          setDynamicCoursesByMaster(next);
+        }
+      } catch (error) {
+        console.error('Failed to fetch course catalog:', error);
+      } finally {
+        if (!cancelled) {
+          setIsLoadingCourseCatalog(false);
+        }
+      }
+    };
+
+    fetchCourseCatalog();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedMasters]);
   
   // Get available courses based on selected masters with master context
   // For courses like OIP that appear in multiple masters, we need to show which master it belongs to
-  const availableCoursesWithContext = selectedMasters.flatMap(masterId => {
-    const master = availableMasters[masterId];
-    if (!master) return [];
-    
-    // Extract short name from master ID (e.g., "DAC_M2" -> "DAC", "IMA_M2" -> "IMA")
-    const shortName = masterId.replace('_M2', '').replace('_M1', '');
-    
-    return master.courses.map(course => ({
-      // For OIP, make courseId unique per master so each OIP is independent
-      courseId: course === 'OIP' ? `OIP-${masterId}` : course,
-      masterId: masterId,
-      displayName: course === 'OIP' ? `${course} (${shortName})` : course,
-      // Unique key for courses that appear in multiple masters
-      key: course === 'OIP' ? `${course}-${masterId}` : course,
-      // Store original course name for backend filtering
-      originalCourse: course
-    }));
-  });
+  const availableCoursesWithContext = useMemo(
+    () => selectedMasters.flatMap(masterId => {
+      const master = availableMasters[masterId];
+      if (!master) return [];
+
+      const discovered = dynamicCoursesByMaster[masterId] || [];
+      const courseSet = new Set<string>([...discovered, ...master.courses]);
+      const courses = Array.from(courseSet);
+
+      // Extract short name from master ID (e.g., "DAC_M2" -> "DAC", "IMA_M2" -> "IMA")
+      const shortName = masterId.replace('_M2', '').replace('_M1', '');
+
+      return courses.map(course => ({
+        // For OIP, make courseId unique per master so each OIP is independent
+        courseId: course === 'OIP' ? `OIP-${masterId}` : course,
+        masterId: masterId,
+        displayName: course === 'OIP' ? `${course} (${shortName})` : course,
+        // Unique key for courses that appear in multiple masters
+        key: course === 'OIP' ? `${course}-${masterId}` : course,
+        // Store original course name for backend filtering
+        originalCourse: course
+      }));
+    }),
+    [availableMasters, dynamicCoursesByMaster, selectedMasters]
+  );
   
   // Remove duplicate non-OIP courses (keep all OIP variants)
   const availableCourses = availableCoursesWithContext.filter((courseObj, index, self) => {
@@ -92,11 +143,27 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
       courseId.startsWith('OIP-') ? 'OIP' : courseId
     );
 
+    const oipGroups = Object.entries(courseGroups)
+      .filter(([courseId]) => courseId.startsWith('OIP-'))
+      .map(([, group]) => group);
+    const uniqueOipGroups = new Set(oipGroups);
+
+    const backendCourseGroups: {[courseId: string]: string} = {};
+    Object.entries(courseGroups).forEach(([courseId, group]) => {
+      if (courseId.startsWith('OIP-')) {
+        return;
+      }
+      backendCourseGroups[courseId] = group;
+    });
+    if (uniqueOipGroups.size === 1) {
+      backendCourseGroups['OIP'] = oipGroups[0];
+    }
+
     const filter: FilterConfig = {
       masters: selectedMasters,
       courses: backendCourses,
       groups: { td: '', tme: '' }, // Empty legacy groups
-      courseGroups: courseGroups,
+      courseGroups: backendCourseGroups,
       dateRange: {
         start: startDate,
         end: endDate
@@ -119,7 +186,8 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
         const groupsMap: {[courseId: string]: string[]} = {};
         
         selectedCourses.forEach(courseId => {
-          const courseData = data.data.courseAnalysis[courseId];
+          const analysisCourseId = courseId.startsWith('OIP-') ? 'OIP' : courseId;
+          const courseData = data.data.courseAnalysis[analysisCourseId];
           if (courseData && courseData.groups) {
             const allGroups = new Set<string>();
             
@@ -244,6 +312,32 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
 
   const generateCalendar = async () => {
     try {
+      const now = new Date();
+      const startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - 30);
+      const endDate = new Date(now);
+      endDate.setDate(endDate.getDate() + 365);
+
+      const backendCourses = selectedCourses.map(courseId => 
+        courseId.startsWith('OIP-') ? 'OIP' : courseId
+      );
+
+      const oipGroups = Object.entries(courseGroups)
+        .filter(([courseId]) => courseId.startsWith('OIP-'))
+        .map(([, group]) => group);
+      const uniqueOipGroups = new Set(oipGroups);
+
+      const backendCourseGroups: {[courseId: string]: string} = {};
+      Object.entries(courseGroups).forEach(([courseId, group]) => {
+        if (courseId.startsWith('OIP-')) {
+          return;
+        }
+        backendCourseGroups[courseId] = group;
+      });
+      if (uniqueOipGroups.size === 1) {
+        backendCourseGroups['OIP'] = oipGroups[0];
+      }
+
       const response = await fetch('/api/generate-calendar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -251,12 +345,12 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
           name: calendarName,
           filter: {
             masters: selectedMasters,
-            courses: selectedCourses,
+            courses: backendCourses,
             groups: { td: '', tme: '' }, // Required by FilterConfig interface
-            courseGroups: courseGroups,
+            courseGroups: backendCourseGroups,
             dateRange: {
-              start: new Date('2024-01-01'),
-              end: new Date('2025-12-31')
+              start: startDate,
+              end: endDate
             }
           }
         })
@@ -342,6 +436,9 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
             <label className="block text-sm font-medium text-gray-600">
               Courses
             </label>
+            {isLoadingCourseCatalog && (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+            )}
             {selectedCourses.length > 0 && (
               <button
                 onClick={() => {
