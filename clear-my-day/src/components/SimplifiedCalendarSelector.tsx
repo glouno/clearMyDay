@@ -15,6 +15,24 @@ interface SimplifiedCalendarSelectorProps {
 export default function SimplifiedCalendarSelector({ onFilterChange }: SimplifiedCalendarSelectorProps) {
   type SemesterPreset = 'ALL' | 'S1' | 'S2';
 
+  type CourseCatalogCourseEntry = {
+    totalEvents: number;
+    types?: Record<string, number>;
+    matchedBy?: Record<string, number>;
+    samples?: string[];
+  };
+
+  type CourseCatalogSourceResult = {
+    success: boolean;
+    error?: string;
+    minEvents?: number;
+    range?: { start: string; end: string } | null;
+    hardcodedCourses?: string[];
+    discoveredCourses?: string[];
+    courses?: Record<string, CourseCatalogCourseEntry>;
+    unknownSamples?: string[];
+  };
+
   const [masterLevel, setMasterLevel] = useState<MasterLevel>('M1');
   const [semesterPreset, setSemesterPreset] = useState<SemesterPreset>('ALL');
   const [selectedMasters, setSelectedMasters] = useState<string[]>(['DAC']);
@@ -24,6 +42,7 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
   const [availableGroups, setAvailableGroups] = useState<{[courseId: string]: string[]}>({});
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [dynamicCoursesByMaster, setDynamicCoursesByMaster] = useState<{[masterId: string]: string[]}>({});
+  const [courseCatalogByMaster, setCourseCatalogByMaster] = useState<Record<string, CourseCatalogSourceResult>>({});
   const [isLoadingCourseCatalog, setIsLoadingCourseCatalog] = useState(false);
   const [showUrlModal, setShowUrlModal] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState('');
@@ -69,6 +88,7 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
     const fetchCourseCatalog = async () => {
       if (selectedMasters.length === 0) {
         setDynamicCoursesByMaster({});
+        setCourseCatalogByMaster({});
         return;
       }
 
@@ -82,15 +102,16 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
         const data = await response.json();
 
         if (!cancelled && data?.success && data?.data?.sources) {
+          const sources = data.data.sources as Record<string, CourseCatalogSourceResult>;
           const next: {[masterId: string]: string[]} = {};
 
-          Object.entries(data.data.sources).forEach(([source, sourceResult]) => {
-            const result = sourceResult as { success?: boolean; discoveredCourses?: unknown };
-            if (result?.success && Array.isArray(result?.discoveredCourses)) {
-              next[source] = result.discoveredCourses;
+          Object.entries(sources).forEach(([source, sourceResult]) => {
+            if (sourceResult?.success && Array.isArray(sourceResult?.discoveredCourses)) {
+              next[source] = sourceResult.discoveredCourses;
             }
           });
 
+          setCourseCatalogByMaster(sources);
           setDynamicCoursesByMaster(next);
         }
       } catch (error) {
@@ -461,6 +482,104 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
             </button>
           </div>
         </div>
+
+        <details className="mb-6 rounded-lg border border-gray-200 bg-white p-4">
+          <summary className="cursor-pointer select-none text-sm font-medium text-gray-800">
+            Discovered modules (dynamic)
+          </summary>
+          <div className="mt-3 space-y-4">
+            {isLoadingCourseCatalog && (
+              <div className="text-sm text-gray-600">Loading course discovery…</div>
+            )}
+
+            {!isLoadingCourseCatalog && selectedMasters.length === 0 && (
+              <div className="text-sm text-gray-600">Select at least one master to discover modules.</div>
+            )}
+
+            {selectedMasters.map(masterId => {
+              const result = courseCatalogByMaster[masterId];
+              const masterName = availableMasters[masterId]?.name || masterId;
+
+              if (!result) {
+                return (
+                  <div key={masterId} className="text-sm text-gray-600">
+                    {masterName}: no data yet.
+                  </div>
+                );
+              }
+
+              if (!result.success) {
+                return (
+                  <div key={masterId} className="text-sm text-red-700">
+                    {masterName}: {result.error || 'discovery failed'}
+                  </div>
+                );
+              }
+
+              const discovered = result.discoveredCourses || [];
+              const rangeLabel = result.range ? `${result.range.start} → ${result.range.end}` : 'All';
+
+              return (
+                <div key={masterId} className="rounded-md border border-gray-200 p-3">
+                  <div className="text-sm font-semibold text-gray-900">{masterName}</div>
+                  <div className="mt-1 text-xs text-gray-600">Range: {rangeLabel}</div>
+
+                  {discovered.length === 0 ? (
+                    <div className="mt-2 text-sm text-gray-600">No modules found (above minEvents threshold).</div>
+                  ) : (
+                    <div className="mt-2 overflow-x-auto">
+                      <table className="w-full text-left text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-200 text-xs text-gray-600">
+                            <th className="py-1 pr-3 font-medium">Module</th>
+                            <th className="py-1 pr-3 font-medium">Events</th>
+                            <th className="py-1 pr-3 font-medium">Matched by</th>
+                            <th className="py-1 font-medium">Sample</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {discovered.slice(0, 50).map(courseId => {
+                            const entry = result.courses?.[courseId];
+                            const topMatchedBy = entry?.matchedBy
+                              ? Object.entries(entry.matchedBy).sort((a, b) => b[1] - a[1])[0]?.[0]
+                              : undefined;
+                            const sample = entry?.samples?.[0] || '';
+
+                            return (
+                              <tr key={courseId} className="border-b border-gray-100 last:border-b-0">
+                                <td className="py-1 pr-3 font-mono text-xs text-gray-900">{courseId}</td>
+                                <td className="py-1 pr-3 text-gray-800">{entry?.totalEvents ?? '-'}</td>
+                                <td className="py-1 pr-3 font-mono text-[11px] text-gray-700">{topMatchedBy || '-'}</td>
+                                <td className="py-1 text-[11px] text-gray-700">{sample}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      {discovered.length > 50 && (
+                        <div className="mt-2 text-xs text-gray-600">Showing first 50 modules.</div>
+                      )}
+                    </div>
+                  )}
+
+                  {Array.isArray(result.unknownSamples) && result.unknownSamples.length > 0 && (
+                    <details className="mt-3">
+                      <summary className="cursor-pointer text-xs text-gray-700">Unknown samples ({result.unknownSamples.length})</summary>
+                      <div className="mt-2 space-y-1 text-[11px] text-gray-700">
+                        {result.unknownSamples.slice(0, 10).map((s, idx) => (
+                          <div key={`${masterId}-unknown-${idx}`} className="font-mono">{s}</div>
+                        ))}
+                        {result.unknownSamples.length > 10 && (
+                          <div className="text-xs text-gray-600">Showing first 10 unknown samples.</div>
+                        )}
+                      </div>
+                    </details>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </details>
 
         {/* Master Programs Selection */}
         <div className="mb-6 sm:mb-8">
