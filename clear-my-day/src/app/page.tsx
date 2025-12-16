@@ -10,12 +10,14 @@ export default function Home() {
   const [courseGroups, setCourseGroups] = useState<{[courseId: string]: string}>({});
   const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
   const [selectedMasters, setSelectedMasters] = useState<('DAC' | 'IMA' | 'ANDROIDE')[]>([]);
+  const [dateRange, setDateRange] = useState<{ start: Date; end: Date } | null>(null);
   const [showWeeklyCalendar, setShowWeeklyCalendar] = useState(false);
 
   const handleFilterChange = useCallback((filter: FilterConfig) => {
     setSelectedMasters(filter.masters as ('DAC' | 'IMA' | 'ANDROIDE')[]);
     setSelectedCourses(filter.courses);
     setCourseGroups(filter.courseGroups || {});
+    setDateRange(filter.dateRange || null);
   }, []);
 
   return (
@@ -47,6 +49,7 @@ export default function Home() {
               courseGroups={courseGroups}
               selectedCourses={selectedCourses}
               selectedMasters={selectedMasters}
+              dateRange={dateRange || undefined}
               autoLoad={true}
             />
           )}

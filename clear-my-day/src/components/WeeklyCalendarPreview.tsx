@@ -12,6 +12,7 @@ interface WeeklyCalendarPreviewProps {
   selectedCourses: string[];
   selectedMasters: ('DAC' | 'IMA' | 'ANDROIDE')[];
   autoLoad?: boolean;
+  dateRange?: { start: Date; end: Date };
 }
 
 interface CalendarEvent {
@@ -37,7 +38,7 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
-export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, selectedMasters, autoLoad = false }: WeeklyCalendarPreviewProps) {
+export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, selectedMasters, autoLoad = false, dateRange }: WeeklyCalendarPreviewProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [currentView, setCurrentView] = useState('work_week');
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -68,6 +69,14 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
   const goToToday = useCallback(() => {
     setCurrentDate(new Date());
   }, []);
+
+  const goToRangeStart = useCallback(() => {
+    if (dateRange?.start) {
+      setCurrentDate(new Date(dateRange.start));
+      return;
+    }
+    setCurrentDate(new Date());
+  }, [dateRange?.start]);
 
   // Navigation functions
   const goToPrevious = () => {
@@ -125,8 +134,8 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
             groups: { td: '', tme: '' }, // Required by FilterConfig
             courseGroups: courseGroups,
             dateRange: {
-              start: new Date('2024-01-01'),
-              end: new Date('2025-12-31')
+              start: dateRange?.start || new Date('2024-01-01'),
+              end: dateRange?.end || new Date('2025-12-31')
             }
           }
         })
@@ -250,8 +259,14 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
         console.log('Final Calendar Events:', calendarEvents.length);
         setEvents(calendarEvents);
         
-        // Navigate to today's date after loading events for better UX
-        goToToday();
+        const now = new Date();
+        if (dateRange?.start && dateRange?.end && now >= dateRange.start && now <= dateRange.end) {
+          goToToday();
+        } else if (dateRange?.start) {
+          goToRangeStart();
+        } else {
+          goToToday();
+        }
 
     } catch (error) {
       console.error('❌ Failed to fetch calendar events:', error);
@@ -259,7 +274,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
     } finally {
       setLoading(false);
     }
-  }, [courseGroups, goToToday, selectedCourses, selectedMasters]);
+  }, [courseGroups, dateRange?.end, dateRange?.start, goToRangeStart, goToToday, selectedCourses, selectedMasters]);
 
   useEffect(() => {
     if (autoLoad && !hasAutoLoaded && selectedCourses.length > 0 && selectedMasters.length > 0) {
