@@ -94,11 +94,12 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
 
       setIsLoadingCourseCatalog(true);
       try {
+        const minEvents = semesterPreset === 'ALL' ? 3 : 1;
         const range = getDateRange();
         const rangeQuery = semesterPreset === 'ALL'
           ? ''
           : `&start=${encodeURIComponent(range.start.toISOString())}&end=${encodeURIComponent(range.end.toISOString())}`;
-        const response = await fetch(`/api/course-catalog?sources=${selectedMasters.join(',')}&minEvents=3${rangeQuery}`);
+        const response = await fetch(`/api/course-catalog?sources=${selectedMasters.join(',')}&minEvents=${minEvents}${rangeQuery}`);
         const data = await response.json();
 
         if (!cancelled && data?.success && data?.data?.sources) {
@@ -141,6 +142,8 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
       const courseSet = new Set<string>([...discovered, ...master.courses]);
       const courses = Array.from(courseSet);
 
+      const catalog = courseCatalogByMaster[masterId];
+
       // Extract short name from master ID (e.g., "DAC_M2" -> "DAC", "IMA_M2" -> "IMA")
       const shortName = masterId.replace('_M2', '').replace('_M1', '');
 
@@ -152,10 +155,11 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
         // Unique key for courses that appear in multiple masters
         key: course === 'OIP' ? `${course}-${masterId}` : course,
         // Store original course name for backend filtering
-        originalCourse: course
+        originalCourse: course,
+        eventCount: catalog?.success ? (catalog.courses?.[course]?.totalEvents ?? 0) : undefined
       }));
     }),
-    [availableMasters, dynamicCoursesByMaster, selectedMasters]
+    [availableMasters, courseCatalogByMaster, dynamicCoursesByMaster, selectedMasters]
   );
   
   // Remove duplicate non-OIP courses (keep all OIP variants)
@@ -165,6 +169,22 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
     // For other courses, keep only first occurrence
     return index === self.findIndex(c => c.courseId === courseObj.courseId);
   });
+
+  const hasAnyCatalogForSelectedMasters = useMemo(
+    () => selectedMasters.some(masterId => courseCatalogByMaster[masterId]?.success),
+    [courseCatalogByMaster, selectedMasters]
+  );
+
+  const visibleCourses = useMemo(() => {
+    if (semesterPreset === 'ALL' || !hasAnyCatalogForSelectedMasters) return availableCourses;
+
+    return availableCourses.filter(courseObj => {
+      const count = courseObj.eventCount;
+      if (typeof count !== 'number') return true;
+      if (count > 0) return true;
+      return selectedCourses.includes(courseObj.courseId);
+    });
+  }, [availableCourses, hasAnyCatalogForSelectedMasters, selectedCourses, semesterPreset]);
 
   // Reset selections when master level changes
   useEffect(() => {
@@ -325,12 +345,16 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
   const handleMasterChange = (masterId: string, checked: boolean) => {
     if (checked) {
       setSelectedMasters(prev => [...prev, masterId]);
-      // Auto-select default courses for this master (map OIP to OIP-masterId)
+      // Auto-select default courses for this master
+      // In semester mode, prefer the semester-scoped discovered list, otherwise fall back to hardcoded.
       const master = availableMasters[masterId];
       if (master) {
-        const mappedCourses = master.courses.map(c => 
-          c === 'OIP' ? `OIP-${masterId}` : c
-        );
+        const semesterDiscovered = dynamicCoursesByMaster[masterId];
+        const baseCourses = semesterPreset !== 'ALL' && Array.isArray(semesterDiscovered) && semesterDiscovered.length > 0
+          ? semesterDiscovered
+          : master.courses;
+
+        const mappedCourses = baseCourses.map(c => (c === 'OIP' ? `OIP-${masterId}` : c));
         setSelectedCourses(prev => [...new Set([...prev, ...mappedCourses])]);
       }
     } else {
@@ -625,17 +649,35 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
             )}
           </div>
           <div className="flex flex-wrap gap-3">
-            {availableCourses.map(courseObj => (
-              <label key={courseObj.key} className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={selectedCourses.includes(courseObj.courseId)}
-                  onChange={(e) => handleCourseChange(courseObj.courseId, e.target.checked)}
-                  className="mr-2 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">{courseObj.displayName}</span>
-              </label>
-            ))}
+            {visibleCourses.map(courseObj => {
+              const isSelected = selectedCourses.includes(courseObj.courseId);
+              const count = courseObj.eventCount;
+              const isUnavailable = semesterPreset !== 'ALL' && hasAnyCatalogForSelectedMasters && typeof count === 'number' && count === 0;
+              const shouldDisable = isUnavailable && !isSelected;
+
+              return (
+                <label
+                  key={courseObj.key}
+                  className={`flex items-center ${shouldDisable ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    disabled={shouldDisable}
+                    onChange={(e) => handleCourseChange(courseObj.courseId, e.target.checked)}
+                    className="mr-2 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">
+                    {courseObj.displayName}
+                    {typeof count === 'number' && hasAnyCatalogForSelectedMasters && (
+                      <span className={`ml-2 text-xs font-mono ${count === 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                        ({count})
+                      </span>
+                    )}
+                  </span>
+                </label>
+              );
+            })}
           </div>
         </div>
 
