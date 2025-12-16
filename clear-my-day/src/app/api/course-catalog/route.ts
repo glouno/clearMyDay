@@ -29,10 +29,44 @@ interface CatalogSourceResult {
   success: boolean;
   error?: string;
   minEvents: number;
+  range: { start: string; end: string } | null;
   hardcodedCourses: string[];
   discoveredCourses: string[];
   courses: Record<string, CatalogCourseEntry>;
   unknownSamples: string[];
+}
+
+function getCatalogCacheKey(source: string, minEvents: number, range: { start: string; end: string } | null): string {
+  if (!range) {
+    return `course-catalog-${source}-min${minEvents}`;
+  }
+  return `course-catalog-${source}-min${minEvents}-${range.start}-${range.end}`;
+}
+
+function parseRange(searchParams: URLSearchParams): { start: string; end: string } | null {
+  const start = searchParams.get('start');
+  const end = searchParams.get('end');
+  if (!start || !end) return null;
+
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || startDate >= endDate) return null;
+
+  return { start: startDate.toISOString(), end: endDate.toISOString() };
+}
+
+function filterEventsByRange(events: CalendarEvent[], range: { start: string; end: string } | null): CalendarEvent[] {
+  if (!range) return events;
+
+  const start = new Date(range.start);
+  const end = new Date(range.end);
+
+  return events.filter(event => {
+    const eventStart = new Date(event.start);
+    const eventEnd = new Date(event.end);
+    if (isNaN(eventStart.getTime()) || isNaN(eventEnd.getTime())) return false;
+    return eventEnd >= start && eventStart <= end;
+  });
 }
 
 function buildCatalogForEvents(events: CalendarEvent[]): { courses: Record<string, CatalogCourseEntry>; unknownSamples: string[] } {
@@ -80,6 +114,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const sources = searchParams.get('sources')?.split(',').filter(Boolean) || ['DAC'];
     const minEvents = Math.max(1, parseInt(searchParams.get('minEvents') || '3', 10) || 3);
+    const range = parseRange(searchParams);
 
     const validSources = sources.filter(source => Object.keys(SORBONNE_CALENDARS).includes(source));
 
@@ -100,7 +135,7 @@ export async function GET(request: NextRequest) {
     if (supabase) {
       for (const source of validSources) {
         try {
-          const cacheKey = `course-catalog-${source}`;
+          const cacheKey = getCatalogCacheKey(source, minEvents, range);
           const { data: cachedData, error } = await supabase
             .from('analyze_events_cache')
             .select('*')
@@ -108,12 +143,7 @@ export async function GET(request: NextRequest) {
             .single();
 
           if (!error && cachedData && isCacheValid(cachedData)) {
-            const cachedResult = cachedData.data as CatalogSourceResult;
-            if (cachedResult.minEvents === minEvents) {
-              cachedResults[source] = cachedResult;
-            } else {
-              sourcesToFetch.push(source);
-            }
+            cachedResults[source] = cachedData.data as CatalogSourceResult;
           } else {
             sourcesToFetch.push(source);
           }
@@ -143,6 +173,7 @@ export async function GET(request: NextRequest) {
             success: false,
             error: result?.error || 'Unknown error',
             minEvents,
+            range,
             hardcodedCourses,
             discoveredCourses: [],
             courses: {},
@@ -151,7 +182,8 @@ export async function GET(request: NextRequest) {
           continue;
         }
 
-        const catalog = buildCatalogForEvents(result.events);
+        const filteredEvents = filterEventsByRange(result.events, range);
+        const catalog = buildCatalogForEvents(filteredEvents);
         const discoveredCourses = Object.keys(catalog.courses)
           .filter(course => catalog.courses[course].totalEvents >= minEvents)
           .sort((a, b) => catalog.courses[b].totalEvents - catalog.courses[a].totalEvents)
@@ -160,6 +192,7 @@ export async function GET(request: NextRequest) {
         const sourceResult: CatalogSourceResult = {
           success: true,
           minEvents,
+          range,
           hardcodedCourses,
           discoveredCourses,
           courses: catalog.courses,
@@ -170,7 +203,7 @@ export async function GET(request: NextRequest) {
 
         if (supabase) {
           try {
-            const cacheKey = `course-catalog-${source}`;
+            const cacheKey = getCatalogCacheKey(source, minEvents, range);
             const expiresAt = new Date();
             expiresAt.setHours(expiresAt.getHours() + CACHE_TTL_HOURS);
 
