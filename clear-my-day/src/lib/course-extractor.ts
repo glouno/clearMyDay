@@ -31,6 +31,7 @@ export function extractCourseFromSummaryDetailed(summary: string): { course: str
   const excludeTokens = new Set([
     'UM',
     'MU',
+    'IN',
     'TD',
     'TME',
     'TP',
@@ -45,7 +46,7 @@ export function extractCourseFromSummaryDetailed(summary: string): { course: str
   ]);
 
   const candidates = summary
-    .split(/[^A-Z]+/)
+    .split('-')
     .map(t => t.trim())
     .filter(t => t.length >= 2 && t.length <= 10)
     .filter(t => /^[A-Z]{2,10}$/.test(t))

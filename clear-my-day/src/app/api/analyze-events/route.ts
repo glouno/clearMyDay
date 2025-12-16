@@ -5,6 +5,7 @@ import { caldavClient } from '@/lib/caldav-client';
 import { SORBONNE_CALENDARS } from '@/lib/constants';
 import { CalendarEvent, CalendarFetchResult } from '@/lib/types';
 import { supabase, isCacheValid, CACHE_TTL_HOURS } from '@/lib/supabase';
+import { extractCourseFromSummary } from '@/lib/course-extractor';
 
 interface EventAnalysis {
   summary: string;
@@ -39,20 +40,8 @@ interface SourceAnalysisResult {
 function analyzeEventSummary(summary: string): EventAnalysis {
   const lowerSummary = summary.toLowerCase();
   
-  // Extract course information
-  const coursePatterns = [
-    /([A-Z]{2,6})\s*[-\s]/,  // MLBDA, DALAS, etc.
-    /\b([A-Z]{2,6})\b/       // Standalone course codes
-  ];
-  
-  let course: string | undefined = undefined;
-  for (const pattern of coursePatterns) {
-    const match = summary.match(pattern);
-    if (match) {
-      course = match[1];
-      break;
-    }
-  }
+  const extractedCourse = extractCourseFromSummary(summary);
+  const course: string | undefined = extractedCourse || undefined;
   
   // Determine event type and extract group
   let type: EventAnalysis['type'] = 'other';
