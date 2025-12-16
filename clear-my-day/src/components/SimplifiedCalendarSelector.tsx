@@ -13,7 +13,10 @@ interface SimplifiedCalendarSelectorProps {
 }
 
 export default function SimplifiedCalendarSelector({ onFilterChange }: SimplifiedCalendarSelectorProps) {
+  type SemesterPreset = 'ALL' | 'S1' | 'S2';
+
   const [masterLevel, setMasterLevel] = useState<MasterLevel>('M1');
+  const [semesterPreset, setSemesterPreset] = useState<SemesterPreset>('ALL');
   const [selectedMasters, setSelectedMasters] = useState<string[]>(['DAC']);
   const [selectedCourses, setSelectedCourses] = useState<string[]>(['MLBDA']);
   const [courseGroups, setCourseGroups] = useState<{[courseId: string]: string}>({});
@@ -34,6 +37,32 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
     [masterLevel]
   );
 
+  const getDateRange = useCallback(() => {
+    const now = new Date();
+    if (semesterPreset === 'ALL') {
+      const startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - 30);
+      const endDate = new Date(now);
+      endDate.setDate(endDate.getDate() + 365);
+      return { start: startDate, end: endDate };
+    }
+
+    const month = now.getMonth();
+    const academicYearStart = month >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+
+    if (semesterPreset === 'S1') {
+      return {
+        start: new Date(academicYearStart, 8, 1),
+        end: new Date(academicYearStart + 1, 1, 1)
+      };
+    }
+
+    return {
+      start: new Date(academicYearStart + 1, 1, 1),
+      end: new Date(academicYearStart + 1, 6, 1)
+    };
+  }, [semesterPreset]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -45,7 +74,11 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
 
       setIsLoadingCourseCatalog(true);
       try {
-        const response = await fetch(`/api/course-catalog?sources=${selectedMasters.join(',')}&minEvents=3`);
+        const range = getDateRange();
+        const rangeQuery = semesterPreset === 'ALL'
+          ? ''
+          : `&start=${encodeURIComponent(range.start.toISOString())}&end=${encodeURIComponent(range.end.toISOString())}`;
+        const response = await fetch(`/api/course-catalog?sources=${selectedMasters.join(',')}&minEvents=3${rangeQuery}`);
         const data = await response.json();
 
         if (!cancelled && data?.success && data?.data?.sources) {
@@ -74,7 +107,7 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
     return () => {
       cancelled = true;
     };
-  }, [selectedMasters]);
+  }, [getDateRange, selectedMasters, semesterPreset]);
   
   // Get available courses based on selected masters with master context
   // For courses like OIP that appear in multiple masters, we need to show which master it belongs to
@@ -132,11 +165,7 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
 
   // Update filter when selections change
   useEffect(() => {
-    const now = new Date();
-    const startDate = new Date(now);
-    startDate.setDate(startDate.getDate() - 30);
-    const endDate = new Date(now);
-    endDate.setDate(endDate.getDate() + 365);
+    const range = getDateRange();
 
     // Map OIP-specific courseIds back to "OIP" for backend
     const backendCourses = selectedCourses.map(courseId => 
@@ -165,13 +194,13 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
       groups: { td: '', tme: '' }, // Empty legacy groups
       courseGroups: backendCourseGroups,
       dateRange: {
-        start: startDate,
-        end: endDate
+        start: range.start,
+        end: range.end
       }
     };
 
     onFilterChange(filter);
-  }, [courseGroups, onFilterChange, selectedCourses, selectedMasters]);
+  }, [courseGroups, getDateRange, onFilterChange, selectedCourses, selectedMasters]);
 
   // Debounced group detection
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -312,11 +341,7 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
 
   const generateCalendar = async () => {
     try {
-      const now = new Date();
-      const startDate = new Date(now);
-      startDate.setDate(startDate.getDate() - 30);
-      const endDate = new Date(now);
-      endDate.setDate(endDate.getDate() + 365);
+      const range = getDateRange();
 
       const backendCourses = selectedCourses.map(courseId => 
         courseId.startsWith('OIP-') ? 'OIP' : courseId
@@ -349,8 +374,8 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
             groups: { td: '', tme: '' }, // Required by FilterConfig interface
             courseGroups: backendCourseGroups,
             dateRange: {
-              start: startDate,
-              end: endDate
+              start: range.start,
+              end: range.end
             }
           }
         })
@@ -407,6 +432,35 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
           onLevelChange={setMasterLevel}
           className="mb-6"
         />
+
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Semester
+          </label>
+          <div className="inline-flex rounded-md border border-gray-300 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setSemesterPreset('ALL')}
+              className={`px-3 py-2 text-sm font-medium ${semesterPreset === 'ALL' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setSemesterPreset('S1')}
+              className={`px-3 py-2 text-sm font-medium border-l border-gray-300 ${semesterPreset === 'S1' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+            >
+              S1
+            </button>
+            <button
+              type="button"
+              onClick={() => setSemesterPreset('S2')}
+              className={`px-3 py-2 text-sm font-medium border-l border-gray-300 ${semesterPreset === 'S2' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+            >
+              S2
+            </button>
+          </div>
+        </div>
 
         {/* Master Programs Selection */}
         <div className="mb-6 sm:mb-8">
