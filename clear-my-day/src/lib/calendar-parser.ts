@@ -2,6 +2,7 @@
 
 import { CalendarEvent, FilterConfig, GroupDetectionResult } from './types';
 import { GROUP_PATTERNS, COURSE_PATTERNS, APP_CONFIG } from './constants';
+import { extractCourseFromSummary } from './course-extractor';
 import { rrulestr } from 'rrule';
 
 export class CalendarParser {
@@ -368,33 +369,8 @@ export class CalendarParser {
    */
   private extractCourseFromEvent(event: CalendarEvent): string | null {
     const summary = event.summary;
-    
-    // Check for OIP events first (they have special patterns)
-    // Examples: "OIP-AI2D-Gr2", "UM5INOIP-TD5", "OIPMIND-OIPMIND-Cours", "MU4INOIP-CS1"
-    if (/\b(OIP|INOIP)\b/i.test(summary)) {
-      return 'OIP';
-    }
 
-    if (/\bLVAN\b/i.test(summary) || /anglais/i.test(summary)) {
-      return 'ANGLAIS';
-    }
-    
-    // Try different patterns to extract course
-    const patterns = [
-      /^4I\d+-(?:TD|TME)\d+-([A-Z]+)/i,           // 4I806-TD1-IAMSI -> IAMSI
-      /^MU4IN\d+-([A-Z]+)-/i,                     // MU4IN806-IAMSI-TME1 -> IAMSI
-      /^UM4IN\d+-([A-Z]+)-/i,                     // UM4IN814-DALAS-TD1 -> DALAS
-      /MU4IN\d+-([A-Z]+)-(?:TD|TME|Cours|ER)/i,   // MU4IN811-ML-TD1 -> ML
-    ];
-    
-    for (const pattern of patterns) {
-      const match = summary.match(pattern);
-      if (match) {
-        return match[1].toUpperCase();
-      }
-    }
-    
-    return null;
+    return extractCourseFromSummary(summary);
   }
 
   /**
