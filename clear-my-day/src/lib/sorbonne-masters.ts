@@ -9,7 +9,7 @@ export const ALL_SORBONNE_MASTERS: Record<string, SorborneCalendarSource> = {
     id: 'DAC',
     name: 'M1 MIND/DAC (Machine Learning, Artificial Intelligence and Data / Data, Apprentissage, Connaissances)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/DAC/M1_DAC',
-    courses: ['DALAS', 'LRC', 'MLBDA'], // From ListOfMasters.md
+    courses: ['DALAS', 'LRC', 'MLBDA', 'IDLE', 'IAMSI', 'ML', 'RITAL', 'SAM', 'ANGLAIS'], // From ListOfMasters.md
     defaultGroups: { td: '5', tme: 'B' }
   },
   IMA: {

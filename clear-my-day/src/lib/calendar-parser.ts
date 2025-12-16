@@ -321,15 +321,21 @@ export class CalendarParser {
    */
   private matchesCourses(event: CalendarEvent, courses: string[]): boolean {
     const eventText = `${event.summary} ${event.description || ''}`.toLowerCase();
+
+    const extractedCourse = this.extractCourseFromEvent(event);
+    if (extractedCourse) {
+      return courses.some(course => course.toUpperCase() === extractedCourse);
+    }
     
     return courses.some(course => {
       const pattern = COURSE_PATTERNS[course as keyof typeof COURSE_PATTERNS];
       if (pattern) {
         return pattern.test(eventText);
       }
-      
-      // Fallback to simple string matching
-      return eventText.includes(course.toLowerCase());
+
+      const escapedCourse = course.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const wordBoundaryPattern = new RegExp(`\\b${escapedCourse.toLowerCase()}\\b`);
+      return wordBoundaryPattern.test(eventText);
     });
   }
 
@@ -367,6 +373,10 @@ export class CalendarParser {
     // Examples: "OIP-AI2D-Gr2", "UM5INOIP-TD5", "OIPMIND-OIPMIND-Cours", "MU4INOIP-CS1"
     if (/\b(OIP|INOIP)\b/i.test(summary)) {
       return 'OIP';
+    }
+
+    if (/\bLVAN\b/i.test(summary) || /anglais/i.test(summary)) {
+      return 'ANGLAIS';
     }
     
     // Try different patterns to extract course
