@@ -28,6 +28,7 @@ export const APP_CONFIG = {
   TIMEOUT: process.env.NODE_ENV === 'production' ? 20000 : 15000,   // 20s for production, 15s for dev (Sorbonne servers are slow)
   MIN_CACHE_SIZE: 100,             // Minimum events to cache
   MAX_CACHE_SIZE: 10000,           // Maximum events to cache
+  DEBUG_LOGS: process.env.CLEAR_MY_DAY_DEBUG === '1',
   DEFAULT_TIMEZONE: 'Europe/Paris',
   TIMEZONE: 'Europe/Paris',
   ICS_VERSION: '2.0',

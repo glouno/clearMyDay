@@ -166,29 +166,41 @@ class CalDAVClient {
           // Parse EXDATE (exception dates) for the base event only - node-ical returns them as an object with date keys
           let baseExdates: Date[] | undefined = undefined;
           if (vevent.exdate) {
-            console.log(`[CALDAV] Parsing EXDATE for ${vevent.uid} (${vevent.summary}): type=${typeof vevent.exdate}, isArray=${Array.isArray(vevent.exdate)}`);
+            if (APP_CONFIG.DEBUG_LOGS) {
+              console.log(`[CALDAV] Parsing EXDATE for ${vevent.uid} (${vevent.summary}): type=${typeof vevent.exdate}, isArray=${Array.isArray(vevent.exdate)}`);
+            }
             
             // node-ical returns exdate as object with date keys (e.g., {'2025-10-20': Date, '2025-10-27': Date})
             // Check if it's an object with string keys first
             if (typeof vevent.exdate === 'object' && !Array.isArray(vevent.exdate)) {
               const exdateValues = Object.values(vevent.exdate) as (Date | string | number)[];
               baseExdates = exdateValues.map((d) => new Date(d));
-              console.log(`[CALDAV]   Parsed ${baseExdates.length} EXDATE entries from object`);
+              if (APP_CONFIG.DEBUG_LOGS) {
+                console.log(`[CALDAV]   Parsed ${baseExdates.length} EXDATE entries from object`);
+              }
             } else if (typeof vevent.exdate === 'object' && Object.keys(vevent.exdate).length > 0) {
               // Handle case where it's array-like but has string keys
               const exdateValues = Object.values(vevent.exdate) as (Date | string | number)[];
               baseExdates = exdateValues.map((d) => new Date(d));
-              console.log(`[CALDAV]   Parsed ${baseExdates.length} EXDATE entries from object keys`);
+              if (APP_CONFIG.DEBUG_LOGS) {
+                console.log(`[CALDAV]   Parsed ${baseExdates.length} EXDATE entries from object keys`);
+              }
             } else if (Array.isArray(vevent.exdate) && vevent.exdate.length > 0) {
               baseExdates = vevent.exdate.map((d: Date | string | number) => new Date(d));
-              console.log(`[CALDAV]   Parsed ${baseExdates.length} EXDATE entries from array`);
+              if (APP_CONFIG.DEBUG_LOGS) {
+                console.log(`[CALDAV]   Parsed ${baseExdates.length} EXDATE entries from array`);
+              }
             } else {
               // Single exdate or fallback
               baseExdates = [new Date(vevent.exdate)];
-              console.log(`[CALDAV]   Parsed 1 EXDATE entry from single value`);
+              if (APP_CONFIG.DEBUG_LOGS) {
+                console.log(`[CALDAV]   Parsed 1 EXDATE entry from single value`);
+              }
             }
             if (baseExdates && baseExdates.length > 0) {
-              console.log(`[CALDAV]   EXDATE dates: ${baseExdates.map(d => d.toISOString()).join(', ')}`);
+              if (APP_CONFIG.DEBUG_LOGS) {
+                console.log(`[CALDAV]   EXDATE dates: ${baseExdates.map(d => d.toISOString()).join(', ')}`);
+              }
             }
           }
 
