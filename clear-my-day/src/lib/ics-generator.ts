@@ -170,10 +170,11 @@ export class ICSGenerator {
     
     // Add recurrence ID if present
     if (event.recurrenceId) {
-      if (isNaN(event.recurrenceId.getTime())) {
+      const recId = event.recurrenceId instanceof Date ? event.recurrenceId : new Date(event.recurrenceId);
+      if (isNaN(recId.getTime())) {
         console.warn(`[ICS-GEN] Skipping invalid RECURRENCE-ID for ${event.uid}: ${String(event.recurrenceId)}`);
       } else {
-        lines.push(`RECURRENCE-ID;TZID=Europe/Paris:${this.formatDateTime(event.recurrenceId)}`);
+        lines.push(`RECURRENCE-ID;TZID=Europe/Paris:${this.formatDateTime(recId)}`);
       }
     }
     
