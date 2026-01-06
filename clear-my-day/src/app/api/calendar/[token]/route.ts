@@ -1,13 +1,15 @@
 // API endpoint for serving personalized ICS calendar feeds
+// Optimized with two-tier caching: ICS output cache (fastest) + CalDAV cache (fallback)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { CalendarStorage } from '@/lib/calendar-storage';
+import { CalendarStorage, CalendarConfig } from '@/lib/calendar-storage';
 import { caldavClient } from '@/lib/caldav-client';
 import { ICSGenerator } from '@/lib/ics-generator';
 import { CalendarParser } from '@/lib/calendar-parser';
 import { supabase } from '@/lib/supabase';
 import { CalendarEvent } from '@/lib/types';
 import { APP_CONFIG } from '@/lib/constants';
+import crypto from 'crypto';
 
 // Rate limiting storage
 const rateLimitStorage = new Map<string, { count: number; resetTime: number }>();
@@ -30,6 +32,37 @@ function checkRateLimit(clientId: string): boolean {
 
   current.count++;
   return true;
+}
+
+// Generate a hash of the filter config to detect changes
+function hashFilterConfig(filter: CalendarConfig['filter']): string {
+  const normalized = JSON.stringify({
+    masters: [...filter.masters].sort(),
+    courses: [...filter.courses].sort(),
+    courseGroups: filter.courseGroups || {},
+    groups: filter.groups || {},
+  });
+  return crypto.createHash('md5').update(normalized).digest('hex');
+}
+
+// Helper to create ICS response with proper headers
+function createICSResponse(icsContent: string, config: CalendarConfig, token: string, cacheStatus: string) {
+  const etag = `"${token}-${config.createdAt.getTime()}"`;
+  return new NextResponse(icsContent, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/calendar; charset=utf-8',
+      'Content-Disposition': `inline; filename="${config.name.replace(/[^a-zA-Z0-9]/g, '_')}.ics"`,
+      'Cache-Control': 'public, max-age=21600, s-maxage=43200, stale-while-revalidate=172800',
+      'ETag': etag,
+      'X-Cache-Status': cacheStatus,
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY'
+    }
+  });
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
@@ -64,31 +97,57 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   try {
-    // Initialize calendar parser and ICS generator
+    const filterHash = hashFilterConfig(config.filter);
+
+    // ============================================================
+    // OPTIMIZATION: Check ICS output cache first (fastest path)
+    // This avoids re-parsing and re-filtering events on every request
+    // ============================================================
+    if (supabase) {
+      try {
+        const { data: cachedICS } = await supabase
+          .from('ics_output_cache')
+          .select('ics_content, filter_hash')
+          .eq('token', token)
+          .gt('expires_at', new Date().toISOString())
+          .single();
+
+        if (cachedICS && cachedICS.ics_content && cachedICS.filter_hash === filterHash) {
+          console.log(`⚡ ICS output cache HIT for ${token}`);
+          return createICSResponse(cachedICS.ics_content, config, token, 'ICS-HIT');
+        }
+      } catch {
+        // Cache miss - continue to generate
+      }
+    }
+
+    // ============================================================
+    // ICS cache miss - need to generate ICS content
+    // ============================================================
     const calendarParser = new CalendarParser();
     const icsGenerator = new ICSGenerator();
     
     // Try to get CalDAV data from cache
-    const cacheKey = `caldav-${config.filter.masters.sort().join('-')}`;
+    const caldavCacheKey = `caldav-${config.filter.masters.sort().join('-')}`;
     let allEvents: CalendarEvent[] = [];
-    let cacheHit = false;
+    let caldavCacheHit = false;
 
     if (supabase) {
       try {
         const { data: cached } = await supabase
           .from('caldav_cache')
           .select('*')
-          .eq('id', cacheKey)
+          .eq('id', caldavCacheKey)
           .gt('expires_at', new Date().toISOString())
           .single();
 
         if (cached && cached.events) {
           allEvents = cached.events as CalendarEvent[];
-          cacheHit = true;
-          console.log(`✅ CalDAV cache HIT for ${cacheKey}`);
+          caldavCacheHit = true;
+          console.log(`✅ CalDAV cache HIT for ${caldavCacheKey}`);
         }
       } catch (cacheError) {
-        console.log(`❌ CalDAV cache MISS for ${cacheKey}`, cacheError);
+        console.log(`❌ CalDAV cache MISS for ${caldavCacheKey}`, cacheError);
       }
     }
 
@@ -101,24 +160,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         .filter(result => result.success)
         .flatMap(result => result.events);
 
-      // Cache the CalDAV response for 6 hours
-      // Events are typically updated 1+ days in advance, so 6 hour lag is acceptable
+      // Cache the CalDAV response (configurable TTL, default 12 hours)
       if (supabase && allEvents.length > 0) {
         try {
           const expiresAt = new Date();
-          expiresAt.setHours(expiresAt.getHours() + 6); // 6 hour cache
+          expiresAt.setHours(expiresAt.getHours() + APP_CONFIG.CALDAV_CACHE_TTL_HOURS);
 
           await supabase
             .from('caldav_cache')
             .upsert({
-              id: cacheKey,
+              id: caldavCacheKey,
               masters: config.filter.masters,
               events: allEvents,
               expires_at: expiresAt.toISOString(),
               updated_at: new Date().toISOString()
             });
 
-          console.log(`💾 Cached CalDAV response for ${cacheKey} (expires in 6 hours)`);
+          console.log(`💾 Cached CalDAV response for ${caldavCacheKey} (expires in ${APP_CONFIG.CALDAV_CACHE_TTL_HOURS} hours)`);
         } catch (cacheError: unknown) {
           console.warn('Failed to cache CalDAV response:', cacheError);
         }
@@ -172,22 +230,35 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       lastUpdated: new Date()
     });
 
-    // Return ICS file
-    return new NextResponse(icsContent, {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/calendar; charset=utf-8',
-        'Content-Disposition': `inline; filename="${config.name.replace(/[^a-zA-Z0-9]/g, '_')}.ics"`,
-        'Cache-Control': 'public, max-age=21600, s-maxage=43200, stale-while-revalidate=172800',
-        'ETag': etag,
-        'X-Cache-Status': cacheHit ? 'HIT' : 'MISS',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'X-Content-Type-Options': 'nosniff',
-        'X-Frame-Options': 'DENY'
+    // ============================================================
+    // OPTIMIZATION: Cache the generated ICS output
+    // This is the most impactful optimization - avoids re-parsing on every request
+    // ============================================================
+    if (supabase) {
+      try {
+        const icsExpiresAt = new Date();
+        icsExpiresAt.setHours(icsExpiresAt.getHours() + APP_CONFIG.ICS_OUTPUT_CACHE_TTL_HOURS);
+
+        await supabase
+          .from('ics_output_cache')
+          .upsert({
+            token: token,
+            ics_content: icsContent,
+            event_count: filteredEvents.length,
+            filter_hash: filterHash,
+            expires_at: icsExpiresAt.toISOString(),
+            updated_at: new Date().toISOString()
+          });
+
+        console.log(`💾 Cached ICS output for ${token} (${filteredEvents.length} events, expires in ${APP_CONFIG.ICS_OUTPUT_CACHE_TTL_HOURS}h)`);
+      } catch (cacheError: unknown) {
+        console.warn('Failed to cache ICS output:', cacheError);
       }
-    });
+    }
+
+    // Return ICS file
+    const cacheStatus = caldavCacheHit ? 'CALDAV-HIT' : 'MISS';
+    return createICSResponse(icsContent, config, token, cacheStatus);
 
   } catch (error) {
     console.error('Error generating calendar:', error);
