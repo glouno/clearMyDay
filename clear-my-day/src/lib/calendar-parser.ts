@@ -2,8 +2,41 @@
 
 import { CalendarEvent, FilterConfig, GroupDetectionResult } from './types';
 import { GROUP_PATTERNS, COURSE_PATTERNS, APP_CONFIG } from './constants';
-import { extractCourseFromSummary } from './course-extractor';
 import { rrulestr } from 'rrule';
+
+// Simple course extractor helper
+function extractCourseFromSummary(summary: string): string | null {
+  if (!summary) return null;
+
+  if (/\b(OIP|INOIP)\b/i.test(summary)) return 'OIP';
+  if (/\bLVAN\b/i.test(summary) || /anglais/i.test(summary)) return 'ANGLAIS';
+
+  // Try standard patterns
+  const patterns = [
+    /^4I\d+-(?:TD|TME)\d+-([A-Z]+)/i,
+    /^MU4IN\d+-([A-Z]+)-/i,
+    /^UM4IN\d+-([A-Z]+)-/i,
+    /MU4IN\d+-([A-Z]+)-(?:TD|TME|Cours|ER)/i,
+    /UM4IN\d+-([A-Z]+)-(?:TD|TME|Cours|ER)/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = summary.match(pattern);
+    if (match) return match[1].toUpperCase();
+  }
+
+  // Fallback: splitting by hyphen
+  if (/^(?:UM|MU|4I)/i.test(summary)) {
+    const excludeTokens = new Set(['UM', 'MU', 'IN', 'TD', 'TME', 'TP', 'COURS', 'EXAM', 'EXAMEN', 'SALLE', 'AMPHI', 'GROUPE', 'GROUP', 'GR']);
+    const candidates = summary.split('-')
+      .map(t => t.trim())
+      .filter(t => t.length >= 2 && t.length <= 10 && /^[A-Z]{2,10}$/.test(t) && !excludeTokens.has(t));
+
+    if (candidates.length > 0) return candidates[0].toUpperCase();
+  }
+
+  return null;
+}
 
 export class CalendarParser {
   /**
@@ -13,25 +46,25 @@ export class CalendarParser {
    */
   private extractCancelledDate(summary: string, description?: string): Date | null {
     const text = `${summary} ${description || ''}`;
-    
+
     // Match patterns like "report du 23/10", "annulée et reportée au 23/10", etc.
     const patterns = [
       /report.*?du\s+(\d{1,2})\/(\d{1,2})/i,
       /annulée.*?(\d{1,2})\/(\d{1,2})/i,
       /reporté.*?du\s+(\d{1,2})\/(\d{1,2})/i,
     ];
-    
+
     for (const pattern of patterns) {
       const match = text.match(pattern);
       if (match) {
         const day = parseInt(match[1], 10);
         const month = parseInt(match[2], 10);
-        
+
         // Determine the year based on the month (handle academic year Sept-Aug)
         const now = new Date();
         const currentMonth = now.getMonth() + 1; // 1-12
         const currentYear = now.getFullYear();
-        
+
         // If month is Sept-Dec, use current year if we're in Sept-Dec, otherwise use current year
         // If month is Jan-Aug, use current year if we're past that month, otherwise use current year
         let year = currentYear;
@@ -46,7 +79,7 @@ export class CalendarParser {
             year = currentYear + 1;
           }
         }
-        
+
         try {
           // Use midday to avoid timezone boundary issues when converting to ISO string
           const cancelledDate = new Date(year, month - 1, day, 12, 0, 0);
@@ -58,7 +91,7 @@ export class CalendarParser {
         }
       }
     }
-    
+
     return null;
   }
 
@@ -193,7 +226,7 @@ export class CalendarParser {
   filterEvents(events: CalendarEvent[], filter: FilterConfig): CalendarEvent[] {
     // Normalize recurring events while preserving RRULE/EXDATE semantics
     const expandedEvents = this.expandRecurringEvents(events);
-    
+
     return expandedEvents.filter(event => {
       // Date range filter (handles RRULE occurrences without expansion)
       if (!this.isEventInDateRange(event, filter.dateRange)) {
@@ -236,7 +269,7 @@ export class CalendarParser {
     const summary = event.summary.toLowerCase();
     const description = (event.description || '').toLowerCase();
     const eventText = `${summary} ${description}`;
-    
+
     // Patterns for general events that apply to all students
     // NOTE: OIP is NOT included here - it's a regular course with master-specific variants and groups
     const generalEventPatterns = [
@@ -254,7 +287,7 @@ export class CalendarParser {
       /pr[eé]sentation.*master/i,           // Master presentations
       /information.*collective/i             // Collective information sessions
     ];
-    
+
     return generalEventPatterns.some(pattern => pattern.test(eventText));
   }
 
@@ -263,7 +296,7 @@ export class CalendarParser {
    */
   private isAcademicEvent(event: CalendarEvent): boolean {
     const summary = event.summary.toLowerCase();
-    
+
     // Exclude holidays and non-academic events
     const excludePatterns = [
       /férié/i,
@@ -271,11 +304,11 @@ export class CalendarParser {
       /vacances/i,
       /holiday/i
     ];
-    
+
     if (excludePatterns.some(pattern => pattern.test(summary))) {
       return false;
     }
-    
+
     // Include events with course codes or academic keywords
     const academicPatterns = [
       /4I\d+/i,           // Old format: 4I801, 4I802, etc.
@@ -290,7 +323,7 @@ export class CalendarParser {
       /conference/i,      // Conferences
       /seminaire/i        // Seminars
     ];
-    
+
     return academicPatterns.some(pattern => pattern.test(summary));
   }
 
@@ -327,7 +360,7 @@ export class CalendarParser {
     if (extractedCourse) {
       return courses.some(course => course.toUpperCase() === extractedCourse);
     }
-    
+
     return courses.some(course => {
       const pattern = COURSE_PATTERNS[course as keyof typeof COURSE_PATTERNS];
       if (pattern) {
@@ -345,22 +378,22 @@ export class CalendarParser {
    */
   private matchesGroups(event: CalendarEvent, filter: FilterConfig): boolean {
     const eventText = `${event.summary} ${event.description || ''}`;
-    
+
     // Extract course from event summary
     const courseId = this.extractCourseFromEvent(event);
-    
+
     // Check course-specific groups first
     if (filter.courseGroups && courseId && filter.courseGroups[courseId]) {
       const groupNumber = filter.courseGroups[courseId];
       return this.matchesCourseGroup(eventText, groupNumber);
     }
-    
+
     // Fall back to global groups (legacy support)
     const globalGroups = filter.groups;
     if (!globalGroups || ((!globalGroups.td || globalGroups.td === '') && (!globalGroups.tme || globalGroups.tme === ''))) {
       return true;
     }
-    
+
     return this.shouldIncludeEvent(eventText, globalGroups);
   }
 
@@ -382,26 +415,26 @@ export class CalendarParser {
     const tmePattern = new RegExp(`(?:^4I\\d+-TME|MU4IN\\d+-.*-TME|UM4IN\\d+-.*-TME|UM5INOIP-TME|\\bTME\\s*)(\\d+)(?![0-9])`, 'i');
     // OIP-specific group pattern: "OIP-AI2D-Gr2" -> group "2"
     const oipGroupPattern = /(?:OIP.*-Gr|Groupe\s*)(\d+)/i;
-    
+
     const tdMatch = eventText.match(tdPattern);
     const tmeMatch = eventText.match(tmePattern);
     const oipMatch = eventText.match(oipGroupPattern);
-    
+
     // If this is a TD event, check if it matches our group
     if (tdMatch) {
       return tdMatch[1] === groupNumber;
     }
-    
+
     // If this is a TME event, check if it matches our group
     if (tmeMatch) {
       return tmeMatch[1] === groupNumber;
     }
-    
+
     // If this is an OIP group event, check if it matches
     if (oipMatch) {
       return oipMatch[1] === groupNumber;
     }
-    
+
     // If it's not a group-specific event (cours, exam, soutenance, etc.), include it
     return true;
   }
@@ -419,7 +452,7 @@ export class CalendarParser {
     if (groups.td && groups.td !== '') {
       const otherTdPattern = new RegExp(`(?:^4I\\d+-TD|MU4IN\\d+-.*-TD|UM4IN\\d+-.*-TD|\\bTD\\s*)(\\d+)(?![0-9])`, 'i');
       const tdMatch = eventText.match(otherTdPattern);
-      
+
       if (tdMatch && tdMatch[1] !== groups.td) {
         // This event belongs to a different TD group, exclude it
         return false;
@@ -430,7 +463,7 @@ export class CalendarParser {
     if (groups.tme && groups.tme !== '') {
       const otherTmePattern = new RegExp(`(?:^4I\\d+-TME|MU4IN\\d+-.*-TME|UM4IN\\d+-.*-TME|\\bTME\\s*)(\\d+)(?![0-9])`, 'i');
       const tmeMatch = eventText.match(otherTmePattern);
-      
+
       if (tmeMatch && tmeMatch[1] !== groups.tme) {
         // This event belongs to a different TME group, exclude it
         return false;
@@ -453,7 +486,7 @@ export class CalendarParser {
    */
   private matchesGroupPattern(eventText: string, groupValue: string, groupType: 'TD' | 'TME'): boolean {
     const patterns = GROUP_PATTERNS[groupType];
-    
+
     return patterns.some(pattern => {
       const match = eventText.match(pattern);
       if (match) {
@@ -468,11 +501,11 @@ export class CalendarParser {
    * Check if event matches custom include/exclude rules
    */
   private matchesCustomRules(
-    event: CalendarEvent, 
+    event: CalendarEvent,
     rules: { include?: string[]; exclude?: string[]; regex?: boolean }
   ): boolean {
     const eventText = `${event.summary} ${event.description || ''} ${event.location || ''}`;
-    
+
     // Check exclude rules first
     if (rules.exclude && rules.exclude.length > 0) {
       const isExcluded = rules.exclude.some(rule => {
@@ -487,7 +520,7 @@ export class CalendarParser {
         }
         return eventText.toLowerCase().includes(rule.toLowerCase());
       });
-      
+
       if (isExcluded) {
         return false;
       }
@@ -522,21 +555,21 @@ export class CalendarParser {
 
     events.forEach(event => {
       const summary = event.summary.toLowerCase();
-      
+
       // Look for TD groups (TD1, TD2, etc.) - more flexible patterns
       const tdMatches = [
         summary.match(/td(\d+)/),
         summary.match(/-td(\d+)/),
         summary.match(/td\s*(\d+)/),
       ];
-      
+
       for (const match of tdMatches) {
         if (match) {
           tdGroups.add(match[1]);
           break;
         }
       }
-      
+
       // Look for TME groups (TME1, TME2, etc.) - more flexible patterns
       const tmeMatches = [
         summary.match(/tme(\d+)/),
@@ -544,14 +577,14 @@ export class CalendarParser {
         summary.match(/tme\s*(\d+)/),
         summary.match(/tme([a-z])/), // Also catch TME-A, TME-B style
       ];
-      
+
       for (const match of tmeMatches) {
         if (match) {
           tmeGroups.add(match[1].toUpperCase());
           break;
         }
       }
-      
+
       // Look for other group patterns
       const otherMatch = summary.match(/(?:groupe?|group)\s*([a-z0-9]+)/i);
       if (otherMatch && !Array.from(tdGroups).length && !Array.from(tmeGroups).length) {
@@ -572,7 +605,7 @@ export class CalendarParser {
   getFilterStats(originalEvents: CalendarEvent[], filteredEvents: CalendarEvent[]) {
     const originalCount = originalEvents.length;
     const filteredCount = filteredEvents.length;
-    const reductionPercent = originalCount > 0 
+    const reductionPercent = originalCount > 0
       ? Math.round(((originalCount - filteredCount) / originalCount) * 100)
       : 0;
 
@@ -592,7 +625,7 @@ export class CalendarParser {
     const now = new Date();
     const start = new Date(now);
     start.setDate(start.getDate() - APP_CONFIG.DEFAULT_DATE_RANGE_PAST);
-    
+
     const end = new Date(now);
     end.setDate(end.getDate() + APP_CONFIG.DEFAULT_DATE_RANGE_FUTURE);
 
@@ -613,15 +646,15 @@ export class CalendarParser {
     // Check date range - handle both Date objects and strings
     let startDate: Date;
     let endDate: Date;
-    
+
     try {
-      startDate = typeof filter.dateRange.start === 'string' 
-        ? new Date(filter.dateRange.start) 
+      startDate = typeof filter.dateRange.start === 'string'
+        ? new Date(filter.dateRange.start)
         : filter.dateRange.start;
-      endDate = typeof filter.dateRange.end === 'string' 
-        ? new Date(filter.dateRange.end) 
+      endDate = typeof filter.dateRange.end === 'string'
+        ? new Date(filter.dateRange.end)
         : filter.dateRange.end;
-        
+
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
         errors.push('Invalid date format in date range');
       } else {
