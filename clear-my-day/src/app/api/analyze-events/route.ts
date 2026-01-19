@@ -6,6 +6,40 @@ import { SORBONNE_CALENDARS } from '@/lib/constants';
 import { CalendarEvent, CalendarFetchResult } from '@/lib/types';
 import { supabase, isCacheValid, CACHE_TTL_HOURS } from '@/lib/supabase';
 
+// Simple course extractor helper
+function extractCourseFromSummary(summary: string): string | null {
+  if (!summary) return null;
+
+  if (/\b(OIP|INOIP)\b/i.test(summary)) return 'OIP';
+  if (/\bLVAN\b/i.test(summary) || /anglais/i.test(summary)) return 'ANGLAIS';
+
+  // Try standard patterns
+  const patterns = [
+    /^4I\d+-(?:TD|TME)\d+-([A-Z]+)/i,
+    /^MU4IN\d+-([A-Z]+)-/i,
+    /^UM4IN\d+-([A-Z]+)-/i,
+    /MU4IN\d+-([A-Z]+)-(?:TD|TME|Cours|ER)/i,
+    /UM4IN\d+-([A-Z]+)-(?:TD|TME|Cours|ER)/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = summary.match(pattern);
+    if (match) return match[1].toUpperCase();
+  }
+
+  // Fallback: splitting by hyphen
+  if (/^(?:UM|MU|4I)/i.test(summary)) {
+    const excludeTokens = new Set(['UM', 'MU', 'IN', 'TD', 'TME', 'TP', 'COURS', 'EXAM', 'EXAMEN', 'SALLE', 'AMPHI', 'GROUPE', 'GROUP', 'GR']);
+    const candidates = summary.split('-')
+      .map(t => t.trim())
+      .filter(t => t.length >= 2 && t.length <= 10 && /^[A-Z]{2,10}$/.test(t) && !excludeTokens.has(t));
+
+    if (candidates.length > 0) return candidates[0].toUpperCase();
+  }
+
+  return null;
+}
+
 interface EventAnalysis {
   summary: string;
   course?: string;
@@ -38,26 +72,14 @@ interface SourceAnalysisResult {
 
 function analyzeEventSummary(summary: string): EventAnalysis {
   const lowerSummary = summary.toLowerCase();
-  
-  // Extract course information
-  const coursePatterns = [
-    /([A-Z]{2,6})\s*[-\s]/,  // MLBDA, DALAS, etc.
-    /\b([A-Z]{2,6})\b/       // Standalone course codes
-  ];
-  
-  let course: string | undefined = undefined;
-  for (const pattern of coursePatterns) {
-    const match = summary.match(pattern);
-    if (match) {
-      course = match[1];
-      break;
-    }
-  }
-  
+
+  const extractedCourse = extractCourseFromSummary(summary);
+  const course: string | undefined = extractedCourse || undefined;
+
   // Determine event type and extract group
   let type: EventAnalysis['type'] = 'other';
   let group: string | undefined = undefined;
-  
+
   if (lowerSummary.includes('cours')) {
     type = 'cours';
   } else if (lowerSummary.includes('exam')) {
@@ -75,7 +97,7 @@ function analyzeEventSummary(summary: string): EventAnalysis {
     const tmeMatch = summary.match(/tme\s*(\d+)/i);
     if (tmeMatch) group = tmeMatch[1];
   }
-  
+
   // Check for OIP-specific group patterns (Gr2, Gr3, etc.)
   if (!group) {
     const grMatch = summary.match(/gr(?:oupe)?\s*(\d+)/i);
@@ -87,7 +109,7 @@ function analyzeEventSummary(summary: string): EventAnalysis {
       }
     }
   }
-  
+
   return {
     summary,
     course,
@@ -104,7 +126,7 @@ export async function GET(request: NextRequest) {
     const sources = searchParams.get('sources')?.split(',') || ['DAC'];
     const courseFilter = searchParams.get('course'); // Optional course filter
 
-    const validSources = sources.filter(source => 
+    const validSources = sources.filter(source =>
       Object.keys(SORBONNE_CALENDARS).includes(source)
     );
 
@@ -119,7 +141,7 @@ export async function GET(request: NextRequest) {
     // NEW STRATEGY: Check cache for each individual master
     const cachedResults: { [source: string]: SourceAnalysisResult } = {};
     const sourcesToFetch: string[] = [];
-    
+
     if (supabase) {
       for (const source of validSources) {
         try {
@@ -148,27 +170,27 @@ export async function GET(request: NextRequest) {
 
     // Fetch events only from sources not in cache
     const fetchedResults: { [source: string]: SourceAnalysisResult } = {};
-    
+
     if (sourcesToFetch.length > 0) {
       console.log(`Fetching events from sources: ${sourcesToFetch.join(', ')}`);
-      
+
       try {
         // Add overall timeout for the entire operation (50 seconds max for production)
         const fetchPromise = caldavClient.fetchAllCalendars(sourcesToFetch);
         const overallTimeout = process.env.NODE_ENV === 'production' ? 50000 : 35000;
-        const timeoutPromise = new Promise((_, reject) => 
+        const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Overall fetch timeout')), overallTimeout)
         );
-        
+
         const fetchResults = await Promise.race([fetchPromise, timeoutPromise]) as Record<string, CalendarFetchResult>;
-        
+
         // Process and analyze each source individually
         for (const source of sourcesToFetch) {
           const result = fetchResults[source];
           if (result && result.success) {
             const sourceAnalysis = await analyzeSourceEvents(source, result.events, courseFilter);
             fetchedResults[source] = sourceAnalysis;
-            
+
             // Cache this individual source result
             if (supabase) {
               try {
@@ -215,7 +237,7 @@ export async function GET(request: NextRequest) {
 
     // Combine cached and fetched results
     const allSourceResults = { ...cachedResults, ...fetchedResults };
-    
+
     // Merge all course analyses from different sources
     const combinedCourseAnalysis: CourseAnalysis = {};
     const combinedPatterns = new Map<string, number>();
@@ -224,33 +246,33 @@ export async function GET(request: NextRequest) {
     const eventsByType = {
       cours: 0, td: 0, tme: 0, exam: 0, soutenance: 0, rattrapage: 0, other: 0
     };
-    
+
     const sourceResults: Array<{
       source: string;
       success: boolean;
       error?: string;
       eventCount: number;
     }> = [];
-    
+
     for (const [source, sourceData] of Object.entries(allSourceResults)) {
       if (sourceData.success !== false) {
         // Merge course analysis
         if (sourceData.courseAnalysis) {
           Object.assign(combinedCourseAnalysis, sourceData.courseAnalysis);
         }
-        
+
         // Merge patterns
         if (sourceData.topPatterns) {
           sourceData.topPatterns.forEach((p: { pattern: string; count: number }) => {
             combinedPatterns.set(p.pattern, (combinedPatterns.get(p.pattern) || 0) + p.count);
           });
         }
-        
+
         // Merge summary stats
         if (sourceData.summary) {
           totalEvents += sourceData.summary.totalEvents || 0;
           totalAnalyzed += sourceData.summary.analyzedEvents || 0;
-          
+
           if (sourceData.summary.eventsByType) {
             Object.keys(eventsByType).forEach(type => {
               const eventCount = sourceData.summary?.eventsByType?.[type] || 0;
@@ -258,7 +280,7 @@ export async function GET(request: NextRequest) {
             });
           }
         }
-        
+
         sourceResults.push({
           source,
           success: true,
@@ -273,15 +295,15 @@ export async function GET(request: NextRequest) {
         });
       }
     }
-    
+
     // Convert combined patterns to sorted array
     const topPatterns = Array.from(combinedPatterns.entries())
       .sort(([, a], [, b]) => b - a)
       .slice(0, 20)
       .map(([pattern, count]) => ({ pattern, count }));
-    
+
     const hasSuccessfulResults = sourceResults.some(r => r.success);
-    
+
     const responseData = {
       summary: {
         totalEvents,
@@ -319,18 +341,18 @@ async function analyzeSourceEvents(source: string, events: CalendarEvent[], cour
 
   for (const event of events) {
     const analysis = analyzeEventSummary(event.summary);
-    
+
     // Filter by course if specified
     if (courseFilter && analysis.course !== courseFilter.toUpperCase()) {
       continue;
     }
-    
+
     eventAnalyses.push(analysis);
-    
+
     // Count patterns
     const patternKey = analysis.summary.replace(/\d+/g, 'X');
     patternCounts.set(patternKey, (patternCounts.get(patternKey) || 0) + 1);
-    
+
     // Build course analysis
     if (analysis.course) {
       if (!courseAnalysis[analysis.course]) {
@@ -340,11 +362,11 @@ async function analyzeSourceEvents(source: string, events: CalendarEvent[], cour
           groups: { td: [], tme: [] }
         };
       }
-      
+
       const courseData = courseAnalysis[analysis.course];
       courseData.totalEvents++;
       courseData.types[analysis.type] = (courseData.types[analysis.type] || 0) + 1;
-      
+
       // Collect unique groups
       if (analysis.type === 'td' && analysis.group && !courseData.groups.td.includes(analysis.group)) {
         courseData.groups.td.push(analysis.group);

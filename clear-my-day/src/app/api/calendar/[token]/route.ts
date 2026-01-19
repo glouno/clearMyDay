@@ -197,10 +197,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     let startDate = new Date(config.filter.dateRange.start);
     let endDate = new Date(config.filter.dateRange.end);
 
+    const rangeMs = endDate.getTime() - startDate.getTime();
+    const looksRolling = rangeMs >= 300 * 24 * 60 * 60 * 1000 && rangeMs <= 500 * 24 * 60 * 60 * 1000;
+
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || startDate >= endDate) {
       startDate = minimumWindow.start;
       endDate = minimumWindow.end;
-    } else {
+    } else if (looksRolling) {
       if (startDate > minimumWindow.start) {
         startDate = minimumWindow.start;
       }

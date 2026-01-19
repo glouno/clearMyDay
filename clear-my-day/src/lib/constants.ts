@@ -61,6 +61,12 @@ export const COURSE_PATTERNS = {
   DALAS: /DALAS/i,
   LRC: /LRC/i,
   MLBDA: /MLBDA/i,
+  IDLE: /\bIDLE\b/i,
+  IAMSI: /\bIAMSI\b/i,
+  ML: /\bML\b/i,
+  RITAL: /\bRITAL\b/i,
+  SAM: /\bSAM\b/i,
+  ANGLAIS: /(LVAN|ANGLAIS)/i,
   MAPSI: /MAPSI/i,
   MOGPL: /MOGPL/i,
   
