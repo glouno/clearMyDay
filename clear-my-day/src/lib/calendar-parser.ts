@@ -377,7 +377,8 @@ export class CalendarParser {
    * Check if event should be included based on course group filtering
    */
   private matchesGroups(event: CalendarEvent, filter: FilterConfig): boolean {
-    const eventText = `${event.summary} ${event.description || ''}`;
+    // Only look at summary for group detection to avoid false positives from description
+    const eventText = event.summary;
 
     // Extract course from event summary
     const courseId = this.extractCourseFromEvent(event);
