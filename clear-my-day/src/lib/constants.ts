@@ -5,7 +5,7 @@ import { CONFIRMED_MASTERS, ALL_SORBONNE_MASTERS } from './sorbonne-masters';
 
 // Sorbonne University Calendar Sources
 // Use CONFIRMED_MASTERS for production, ALL_SORBONNE_MASTERS for testing
-export const SORBONNE_CALENDARS: Record<string, SorborneCalendarSource> = 
+export const SORBONNE_CALENDARS: Record<string, SorborneCalendarSource> =
   process.env.NODE_ENV === 'production' ? CONFIRMED_MASTERS : ALL_SORBONNE_MASTERS;
 
 // Authentication credentials for Sorbonne calendars
@@ -37,7 +37,9 @@ export const APP_CONFIG = {
   CALENDAR_PRODUCT_ID: '-//ClearMyDay//ClearMyDay Calendar Filter//EN',
   REFRESH_INTERVAL_MINUTES: 15,
   TOKEN_LENGTH: 32,
-  TOKEN_EXPIRY_DAYS: 365
+  TOKEN_EXPIRY_DAYS: 365,
+  // Bump this version to invalidate all ICS caches (e.g. after fixing filtering logic)
+  LOGIC_VERSION: '2026-01-20-fix-groups'
 };
 
 // Group detection patterns
@@ -69,13 +71,13 @@ export const COURSE_PATTERNS = {
   ANGLAIS: /(LVAN|ANGLAIS)/i,
   MAPSI: /MAPSI/i,
   MOGPL: /MOGPL/i,
-  
+
   // IMA courses
   BIMA: /BIMA/i,
-  
+
   // ANDROIDE courses
   IREC: /IREC/i,
-  
+
   // Add more courses as needed - this should be dynamic based on masters
 };
 

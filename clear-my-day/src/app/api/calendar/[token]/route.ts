@@ -20,7 +20,7 @@ function checkRateLimit(clientId: string): boolean {
   const maxRequests = 60;
 
   const current = rateLimitStorage.get(clientId);
-  
+
   if (!current || now > current.resetTime) {
     rateLimitStorage.set(clientId, { count: 1, resetTime: now + windowMs });
     return true;
@@ -41,6 +41,7 @@ function hashFilterConfig(filter: CalendarConfig['filter']): string {
     courses: [...filter.courses].sort(),
     courseGroups: filter.courseGroups || {},
     groups: filter.groups || {},
+    v: APP_CONFIG.LOGIC_VERSION // Versioning to force cache invalidation on logic changes
   });
   return crypto.createHash('md5').update(normalized).digest('hex');
 }
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   // Get configuration from token (Supabase or fallback)
   const config = await CalendarStorage.get(token);
-  
+
   if (!config) {
     return new NextResponse('Invalid token', { status: 404 });
   }
@@ -126,7 +127,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // ============================================================
     const calendarParser = new CalendarParser();
     const icsGenerator = new ICSGenerator();
-    
+
     // Try to get CalDAV data from cache
     const caldavCacheKey = `caldav-${config.filter.masters.sort().join('-')}`;
     let allEvents: CalendarEvent[] = [];
@@ -154,7 +155,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // If not in cache, fetch from Sorbonne CalDAV
     if (allEvents.length === 0) {
       const results = await caldavClient.fetchAllCalendars(config.filter.masters);
-      
+
       // Combine all events from successful fetches
       allEvents = Object.values(results)
         .filter(result => result.success)
