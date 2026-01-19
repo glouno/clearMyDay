@@ -416,6 +416,11 @@ export class CalendarParser {
     // OIP-specific group pattern: "OIP-AI2D-Gr2" -> group "2"
     const oipGroupPattern = /(?:OIP.*-Gr|Groupe\s*)(\d+)/i;
 
+    // Patterns to detect un-numbered TD/TME events (e.g., "UM4IN815-IDLE-TD" without a number)
+    // These should match group 1 when the user selects group 1
+    const unnumberedTdPattern = /(?:^4I\d+-TD|MU4IN\d+-.*-TD|UM4IN\d+-.*-TD|\bTD)(?![0-9])/i;
+    const unnumberedTmePattern = /(?:^4I\d+-TME|MU4IN\d+-.*-TME|UM4IN\d+-.*-TME|\bTME)(?![0-9])/i;
+
     const tdMatch = eventText.match(tdPattern);
     const tmeMatch = eventText.match(tmePattern);
     const oipMatch = eventText.match(oipGroupPattern);
@@ -433,6 +438,27 @@ export class CalendarParser {
     // If this is an OIP group event, check if it matches
     if (oipMatch) {
       return oipMatch[1] === groupNumber;
+    }
+
+    // Check for un-numbered TD/TME events - treat as group 1
+    if (groupNumber === '1') {
+      // Check if this is an un-numbered TD event (no number following TD)
+      if (unnumberedTdPattern.test(eventText) && !tdMatch) {
+        return true;
+      }
+      // Check if this is an un-numbered TME event (no number following TME)
+      if (unnumberedTmePattern.test(eventText) && !tmeMatch) {
+        return true;
+      }
+    } else {
+      // If user selected a numbered group (2, 3, etc.), exclude un-numbered TD/TME events
+      // because they belong to the implicit group 1
+      if (unnumberedTdPattern.test(eventText) && !tdMatch) {
+        return false;
+      }
+      if (unnumberedTmePattern.test(eventText) && !tmeMatch) {
+        return false;
+      }
     }
 
     // If it's not a group-specific event (cours, exam, soutenance, etc.), include it
@@ -457,6 +483,12 @@ export class CalendarParser {
         // This event belongs to a different TD group, exclude it
         return false;
       }
+
+      // Handle un-numbered TD events: they belong to implicit group 1
+      const unnumberedTdPattern = /(?:^4I\d+-TD|MU4IN\d+-.*-TD|UM4IN\d+-.*-TD|\bTD)(?![0-9])/i;
+      if (!tdMatch && unnumberedTdPattern.test(eventText) && groups.td !== '1') {
+        return false;
+      }
     }
 
     // Check if this event belongs to a different TME group
@@ -466,6 +498,12 @@ export class CalendarParser {
 
       if (tmeMatch && tmeMatch[1] !== groups.tme) {
         // This event belongs to a different TME group, exclude it
+        return false;
+      }
+
+      // Handle un-numbered TME events: they belong to implicit group 1
+      const unnumberedTmePattern = /(?:^4I\d+-TME|MU4IN\d+-.*-TME|UM4IN\d+-.*-TME|\bTME)(?![0-9])/i;
+      if (!tmeMatch && unnumberedTmePattern.test(eventText) && groups.tme !== '1') {
         return false;
       }
     }

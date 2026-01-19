@@ -54,6 +54,8 @@ interface CourseAnalysis {
     totalEvents: number;
     types: { [type: string]: number };
     groups: { td: string[]; tme: string[] };
+    hasUnnumberedTd?: boolean;  // Track if course has TD events without a group number
+    hasUnnumberedTme?: boolean; // Track if course has TME events without a group number
   };
 }
 
@@ -91,11 +93,21 @@ function analyzeEventSummary(summary: string): EventAnalysis {
   } else if (lowerSummary.includes('td')) {
     type = 'td';
     const tdMatch = summary.match(/td\s*(\d+)/i);
-    if (tdMatch) group = tdMatch[1];
+    if (tdMatch) {
+      group = tdMatch[1];
+    } else {
+      // Mark as unnumbered TD (e.g., "UM4IN815-IDLE-TD" without a number)
+      group = 'unnumbered';
+    }
   } else if (lowerSummary.includes('tme')) {
     type = 'tme';
     const tmeMatch = summary.match(/tme\s*(\d+)/i);
-    if (tmeMatch) group = tmeMatch[1];
+    if (tmeMatch) {
+      group = tmeMatch[1];
+    } else {
+      // Mark as unnumbered TME (e.g., "UM4IN815-IDLE-TME" without a number)
+      group = 'unnumbered';
+    }
   }
 
   // Check for OIP-specific group patterns (Gr2, Gr3, etc.)
@@ -359,7 +371,9 @@ async function analyzeSourceEvents(source: string, events: CalendarEvent[], cour
         courseAnalysis[analysis.course] = {
           totalEvents: 0,
           types: {},
-          groups: { td: [], tme: [] }
+          groups: { td: [], tme: [] },
+          hasUnnumberedTd: false,
+          hasUnnumberedTme: false
         };
       }
 
@@ -368,19 +382,40 @@ async function analyzeSourceEvents(source: string, events: CalendarEvent[], cour
       courseData.types[analysis.type] = (courseData.types[analysis.type] || 0) + 1;
 
       // Collect unique groups
-      if (analysis.type === 'td' && analysis.group && !courseData.groups.td.includes(analysis.group)) {
-        courseData.groups.td.push(analysis.group);
+      if (analysis.type === 'td' && analysis.group) {
+        if (analysis.group === 'unnumbered') {
+          courseData.hasUnnumberedTd = true;
+        } else if (!courseData.groups.td.includes(analysis.group)) {
+          courseData.groups.td.push(analysis.group);
+        }
       }
-      if (analysis.type === 'tme' && analysis.group && !courseData.groups.tme.includes(analysis.group)) {
-        courseData.groups.tme.push(analysis.group);
+      if (analysis.type === 'tme' && analysis.group) {
+        if (analysis.group === 'unnumbered') {
+          courseData.hasUnnumberedTme = true;
+        } else if (!courseData.groups.tme.includes(analysis.group)) {
+          courseData.groups.tme.push(analysis.group);
+        }
       }
     }
   }
 
-  // Sort groups numerically
+  // Sort groups numerically and infer group "1" for unnumbered events when numbered groups exist
   Object.values(courseAnalysis).forEach(course => {
+    // If there are unnumbered TD events AND numbered TD groups exist, add "1" to represent the unnumbered events
+    if (course.hasUnnumberedTd && course.groups.td.length > 0 && !course.groups.td.includes('1')) {
+      course.groups.td.push('1');
+    }
+    // Same logic for TME
+    if (course.hasUnnumberedTme && course.groups.tme.length > 0 && !course.groups.tme.includes('1')) {
+      course.groups.tme.push('1');
+    }
+
     course.groups.td.sort((a, b) => parseInt(a) - parseInt(b));
     course.groups.tme.sort((a, b) => parseInt(a) - parseInt(b));
+
+    // Clean up temporary tracking fields from the output
+    delete course.hasUnnumberedTd;
+    delete course.hasUnnumberedTme;
   });
 
   // Convert pattern counts to array and sort
