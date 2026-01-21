@@ -49,12 +49,12 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
     if (semesterPreset === 'S1') {
       return {
         start: new Date(academicYearStart, 8, 1),
-        end: new Date(academicYearStart + 1, 1, 1)
+        end: new Date(academicYearStart + 1, 0, 1)
       };
     }
 
     return {
-      start: new Date(academicYearStart + 1, 1, 1),
+      start: new Date(academicYearStart + 1, 0, 1),
       end: new Date(academicYearStart + 1, 6, 1)
     };
   }, [semesterPreset]);
