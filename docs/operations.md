@@ -7,7 +7,7 @@ This guide summarises how to deploy, operate, and maintain ClearMyDay. Product o
 ## Environments & Secrets
 
 - **Vercel** hosts the Next.js frontend plus API routes.
-- **Supabase** stores calendar subscriptions, CalDAV caches, and analyse-events cache entries.
+- **Supabase** stores calendar subscriptions, CalDAV caches, and analyze-events cache entries.
 
 Set these environment variables locally (`.env`) and in Vercel:
 
@@ -31,10 +31,11 @@ Run both SQL scripts in the Supabase SQL editor before first deploy:
 
 1. `supabase-calendar-tokens-schema.sql`
    - Creates `calendar_tokens` and `analyze_events_cache`.
-   - Adds indexes + policy that purges tokens older than 30 days.
+   - Adds indexes to support lookup and cleanup queries.
 2. `supabase-caldav-cache-schema.sql`
    - Creates `caldav_cache` with GIN index on `masters`.
    - Installs `cleanup_expired_caldav_cache()` helper function.
+3. **Token cleanup scheduling**: `supabase-calendar-tokens-schema.sql` includes a sample DELETE statement, but does not install an automatic cleanup policy by default—schedule the DELETE or add a cron job if you want automated cleanup.
 
 ### Table Responsibilities
 
@@ -98,7 +99,7 @@ When miss frequency jumps, verify Sorbonne credentials and review `Attempt X fai
 
 ## Routine Maintenance
 
-- **Token Hygiene**: A Supabase policy automatically removes tokens that have not been accessed in 30 days. Manual cleanup can be triggered via helpers in `persistent-storage.ts`.
+- **Token Hygiene**: Tokens are not automatically removed by default; schedule the sample DELETE in `supabase-calendar-tokens-schema.sql` or run manual cleanup via helpers in `persistent-storage.ts`.
 - **Personalized Names**: The system supports personalized calendar names by including the name in the hash used for token generation. This ensures that users see their chosen name in their calendar client while preserving the efficiency of the CalDAV cache, which is keyed only by the selected masters.
 - **Course catalogue updates:** Modify `src/lib/sorbonne-masters.ts` when masters/courses change; update associated tests/UI labels.
 - **Firewall coordination:** Use `docs/domain-notes.md` (firewall observations + French contact template) when working with Sorbonne IT.

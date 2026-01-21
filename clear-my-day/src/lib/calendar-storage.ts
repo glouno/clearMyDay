@@ -37,6 +37,19 @@ export interface CalendarTokenRow {
   access_count: number;
 }
 
+function normalizeCourseGroups(
+  courseGroups: CalendarConfig['filter']['courseGroups']
+): Record<string, string> {
+  if (!courseGroups) return {};
+
+  return Object.keys(courseGroups)
+    .sort()
+    .reduce<Record<string, string>>((accumulator, key) => {
+      accumulator[key] = courseGroups[key];
+      return accumulator;
+    }, {});
+}
+
 // Helper function to create a hash of filter + name for deduplication
 // Including name allows each user to have their own personalized calendar
 function hashFilterConfig(filter: CalendarConfig['filter'], name: string): string {
@@ -44,7 +57,7 @@ function hashFilterConfig(filter: CalendarConfig['filter'], name: string): strin
     name: name.trim(), // Include name for personalized calendars
     masters: [...filter.masters].sort(),
     courses: [...filter.courses].sort(),
-    courseGroups: filter.courseGroups || {},
+    courseGroups: normalizeCourseGroups(filter.courseGroups),
     // Ignore dates for deduplication - different dates shouldn't create new tokens
   });
   return crypto.createHash('md5').update(normalized).digest('hex');
