@@ -1,0 +1,6 @@
+# Example variables file for Azure deployment
+# Copy this to terraform.tfvars and fill in your values
+
+subscription_id = "your-azure-subscription-id"
+location        = "westeurope"
+db_password     = "your-secure-password-here"

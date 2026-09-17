@@ -1,0 +1,9 @@
+logs/
+*.local
+*.log
+*.csv
+*.jsonl
+.DS_Store
+.vercel/
+.env*
+.vercel
