@@ -280,7 +280,7 @@ curl -fsSL "https://www.clearmyday.com/api/calendar/TOKEN" | grep "RRULE"
 
 # Check cache headers
 curl -I "https://www.clearmyday.com/api/calendar/TOKEN"
-# Should include: Cache-Control: public, max-age=21600
+# Should include: Cache-Control: public, max-age=900, s-maxage=1800
 ```
 
 ---

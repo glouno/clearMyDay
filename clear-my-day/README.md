@@ -27,7 +27,7 @@ Calendar app → /api/calendar/[token] → Supabase calendar_tokens →
   ics-generator (final ICS response)
 ```
 
-- `src/lib/caldav-client.ts` — Fetches CalDAV data using REPORT requests limited to the current + next academic year. Results are cached in Supabase (`caldav_cache`) for 6 hours, shared across all users requesting the same master combination.
+- `src/lib/caldav-client.ts` — Fetches and parses Sorbonne CalDAV data. Results are cached in Supabase (`caldav_cache`) for 6 hours, shared across all users requesting the same master combination.
 - `src/lib/calendar-parser.ts` — Filters events, expands recurring series, and honours `RECURRENCE-ID` and `EXDATE` overrides.
 - `src/lib/ics-generator.ts` — Emits RFC 5545 compliant feeds with stable UIDs, ETags, and Europe/Paris timezone definitions.
 - `src/lib/calendar-storage.ts` — Reads/writes subscription configs in Supabase with an in-memory development fallback.
@@ -35,7 +35,7 @@ Calendar app → /api/calendar/[token] → Supabase calendar_tokens →
 ### Data & Caching
 
 - **CalDAV cache:** Supabase table `caldav_cache` keyed by sorted master list (e.g., `caldav-DAC-IMA`). Entries expire after 6 hours and store parsed events to avoid repeated 4 600‑event downloads.
-- **HTTP caching:** `Cache-Control: public, max-age=21600, s-maxage=43200, stale-while-revalidate=172800` plus deterministic ETags (`"<token>-<createdAt>"`). Most repeat hits return `304 Not Modified`.
+- **HTTP caching:** `Cache-Control: public, max-age=900, s-maxage=1800, stale-while-revalidate=3600` plus content-derived ETags. Unchanged repeat hits can return `304 Not Modified`.
 - **Academic year filter:** CalDAV REPORT spans September of the current academic year through August two years later, automatically rolling each September.
 
 ### Repository Layout
@@ -67,7 +67,7 @@ clear-my-day/
 ## Local Development
 
 ### Prerequisites
-- Node.js 18+
+- Node.js 22
 - npm or pnpm
 - Supabase project (optional for local tests; the code falls back to in-memory storage)
 
@@ -105,7 +105,7 @@ npm run build       # Production build check
    SUPABASE_SERVICE_ROLE_KEY=...   # Required; server-only, never expose to browsers
    RATE_LIMIT_REDIS_URL=...        # Optional if rate limit store is external
    ```
-2. **Supabase schema:** run `supabase-calendar-tokens-schema.sql` and `supabase-caldav-cache-schema.sql` (adds `calendar_tokens`, `caldav_cache`, and helper indexes/cleanup function).
+2. **Supabase schema:** link the Supabase project and run `supabase db push`; versioned migrations enforce server-only access and install cache cleanup.
 3. **Deploy:** merge an approved pull request into `master`; Vercel will build with `npm run build`. Verify `GET /api/health` returns `200`.
 
 ### Operations Checklist
