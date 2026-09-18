@@ -25,8 +25,9 @@ User clicks "Generate Calendar"
 ```
 User interacts with UI
 → /api/analyze-events (for group detection)
-→ Fetch from Sorbonne servers (or analysis cache)
-→ Return analysis directly (no token saved)
+→ /api/preview-calendar (for the calendar preview)
+→ Fetch from Sorbonne servers (or caches)
+→ Return analysis/ICS directly (no token saved)
 ```
 
 ### API Endpoints
@@ -89,7 +90,7 @@ OIP events behave like regular courses with master-specific variants. The parser
 - `ics-generator.ts` writes `EXDATE;TZID=Europe/Paris` when exception dates exist.
 - Exception events include `RECURRENCE-ID;TZID=Europe/Paris`.
 - RRULE strings are cleaned and converted to local time without embedded DTSTART directives to maximise Apple/Google compatibility.
-- ETags follow `"<token>-<createdAt>"`; combined with HTTP cache headers they enable efficient 304 responses.
+- ETags are derived from semantic ICS content (excluding volatile generation timestamps); combined with HTTP cache headers they enable efficient 304 responses.
 
 ## Related Files
 
@@ -115,22 +116,22 @@ The system employs a multi-layered caching strategy to ensure high performance a
 ### 2. Group Analysis Cache (`analyze_events_cache`)
 
 - **Purpose**: To cache the results of the `/api/analyze-events` endpoint, which detects available TD/TME groups.
-- **Mechanism**: Each master's analysis is cached **independently** (e.g., `analyze-events-DAC`). When multiple masters are requested, the system fetches only the uncached ones and merges the results. This avoids redundant storage and improves cache hit rates.
-- **TTL**: 90 days (2160 hours). Course group structures are stable for an entire semester.
+- **Mechanism**: Each master's current-academic-year analysis is cached **independently** with a versioned key (for example `analyze-events-v3-2026-DAC`). When multiple masters are requested, the system fetches only the uncached ones and merges the results.
+- **TTL**: 24 hours. Timetables and group labels can change during a semester.
 - **Benefit**: Provides instantaneous group detection in the UI for almost all user interactions after the first visit.
 
 ### 3. HTTP Caching (Client & CDN)
 
 - **Mechanism**: The `/api/calendar/[token]` endpoint returns `Cache-Control` and `ETag` headers.
-- **Headers**: `Cache-Control: public, max-age=21600, s-maxage=43200, stale-while-revalidate=172800`.
-- **ETag**: A hash of the token and its creation date (`"<token>-<createdAt>"`).
+- **Headers**: `Cache-Control: public, max-age=900, s-maxage=1800, stale-while-revalidate=3600`.
+- **ETag**: A truncated SHA-256 hash of semantic ICS content.
 - **Benefit**: Calendar clients and Vercel's Edge Network cache the final ICS file. If a user's configuration hasn't changed, the server returns a `304 Not Modified` response, saving bandwidth and compute.
 
 ---
 
 ## Course & Group Analysis Methodology
 
-The system relies on structured data within event titles to automatically discover courses and groups. This avoids maintaining fragile, hardcoded lists.
+The system relies on structured data within event titles to detect active courses and groups. The course choices displayed by the UI remain curated in `sorbonne-masters.ts`, because a live feed early in the year may not contain later-semester modules.
 
 ### Title Parsing
 A typical Sorbonne event title follows a pattern:
@@ -148,8 +149,8 @@ The `/api/analyze-events` endpoint uses this parsing to perform a statistical an
 2.  **Filter Noise**: It discards codes with very few events (<5), generic names (`TD`, `TME`, `EXAM`), or patterns that look like professor names.
 3.  **Identify Groups**: It collects all unique TD/TME groups found for each valid course.
 
-The results are then cached for 90 days.
+The results are restricted to the current academic year and cached for 24 hours. Filtering and analysis share `course-extractor.ts`, including support for quantum-calendar identifiers such as `UM5INQ01` and `UM5PYQ03`.
 
 ### Future Generalization
 
-The current analysis methodology, which relies on deterministic pattern matching and statistical analysis, is highly effective and can be generalized. It is feasible to build a system that allows users to provide any CalDAV URL, auto-discover courses and groups, and generate a filtered calendar without requiring an LLM or hardcoded configurations. This would make the application useful for a much wider range of institutions and use cases.
+Supporting arbitrary CalDAV sources would require a separate trust, validation, and extraction design. The current endpoint accepts only configured Sorbonne sources.

@@ -88,21 +88,21 @@ export const ALL_SORBONNE_MASTERS: Record<string, SorborneCalendarSource> = {
     id: 'DAC_M2',
     name: 'M2 MIND/DAC (Machine Learning, Artificial Intelligence and Data / Data, Apprentissage, Connaissances)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/DAC/M2_DAC',
-    courses: ['BDLE', 'AMAL', 'RLD', 'REDS', 'LODAS', 'AS', 'XAI', 'FDMS', 'RI', 'CI', 'LSDA', 'MEDS', 'ASWS', 'SACE', 'ADL', 'GDC', 'RL', 'ORACOI', 'DEEP', 'LLM', 'OIP'],
+    courses: ['DEEP', 'LSDA', 'XAI', 'MEDS', 'GDC', 'SACE', 'RL', 'ADL', 'LLM', 'OIP'],
     defaultGroups: {}
   },
   IMA_M2: {
     id: 'IMA_M2',
     name: 'M2 IMA (Informatique Médicale et Applications)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/IMA/M2_IMA',
-    courses: ['RDFIA', 'TADI', 'BIOMED', 'VISION', 'APIMED', 'PRAT', 'DA', 'OIP'],
+    courses: ['RDFIA', 'TADI', 'BIOMED', 'VISION', 'MAPIMED', 'PRAT', 'OIP'],
     defaultGroups: {}
   },
   ANDROIDE_M2: {
     id: 'ANDROIDE_M2',
     name: 'M2 AI2D/ANDROIDE (Artificial Intelligence, Algorithms, Interactions and Decision-making / Agents Distribués, Robotique, Recherche Opérationnelle, Interaction, Décision)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/ANDROIDE/M2_ANDROIDE',
-    courses: ['IAR', 'COCOMA', 'MADMC', 'AOTJ', 'MAOA', 'MADI', 'MOSIMA', 'ISG', 'EVIH', 'AI', 'OIP'],
+    courses: ['IAR', 'COCOMA', 'MADMC', 'AOTJ', 'MAOA', 'MADI', 'MOSIMA', 'HAII', 'AI', 'OIP'],
     defaultGroups: {}
   },
   BIM_M2: {
@@ -151,7 +151,7 @@ export const ALL_SORBONNE_MASTERS: Record<string, SorborneCalendarSource> = {
     id: 'IQ_M2',
     name: 'M2 IQ (Quantum Information)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/IQ/M2_IQ',
-    courses: ['PhQC', 'QIT', 'AQCrypt', 'QCrypt', 'QAlg', 'AQAlg', 'OIP'],
+    courses: ['PHQC', 'QIT', 'AQCRYPT', 'QCRYPT', 'QALG', 'AQALG', 'OIP'],
     defaultGroups: {}
   }
 };

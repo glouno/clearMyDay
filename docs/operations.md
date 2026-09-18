@@ -17,7 +17,6 @@ CALDAV_PASSWORD=guest
 
 SUPABASE_URL=...
 SUPABASE_SERVICE_ROLE_KEY=... # server-only
-SUPABASE_SERVICE_ROLE_KEY=...   # optional, required for admin scripts
 
 RATE_LIMIT_REDIS_URL=...        # optional, falls back to in-memory limiter
 NEXT_PUBLIC_APP_URL=https://www.clearmyday.com
@@ -27,7 +26,7 @@ NEXT_PUBLIC_APP_URL=https://www.clearmyday.com
 
 ## Supabase Schema Checklist
 
-Run all three SQL scripts in the Supabase SQL editor before first deploy:
+For a linked project, apply the versioned files in `supabase/migrations` with `supabase db push`. The standalone schema files document the initial tables for a new installation.
 
 1. `supabase-calendar-tokens-schema.sql`
    - Creates `calendar_tokens` and `analyze_events_cache`.
@@ -37,12 +36,12 @@ Run all three SQL scripts in the Supabase SQL editor before first deploy:
    - Installs `cleanup_expired_caldav_cache()` helper function.
 3. `supabase-ics-output-cache-schema.sql`
    - Creates `ics_output_cache`, keyed by subscription token.
-4. **Token cleanup scheduling**: `supabase-calendar-tokens-schema.sql` includes a sample DELETE statement, but does not install an automatic cleanup policy by default—schedule the DELETE or add a cron job if you want automated cleanup.
+Expired cache rows are removed automatically after a cache-miss write through the private `cleanup_expired_cache_rows()` RPC. This avoids requiring `pg_cron` or exposing a maintenance route. Subscription tokens are not deleted automatically.
 
 ### Table Responsibilities
 
 - `calendar_tokens`: Stores subscription metadata. A unique token is generated for each unique combination of a user's filter configuration and personalized calendar name.
-- `analyze_events_cache`: 90-day cache for `/api/analyze-events` group detection results, keyed by individual master.
+- `analyze_events_cache`: 24-hour cache for current-academic-year group detection, keyed by cache version, academic year, and individual master.
 - `caldav_cache`: 6-hour cache of parsed VEVENT arrays keyed by sorted master list (e.g., `caldav-DAC-IMA`).
 - `ics_output_cache`: 1-hour cache of final filtered ICS output per token.
 
@@ -62,7 +61,7 @@ If Supabase is unreachable, the app falls back to an in-memory `Map`. Subscripti
 
 ### Cache Policy Snapshot
 
-- **HTTP headers:** one-hour browser/CDN freshness with six-hour stale-while-revalidate.
+- **HTTP headers:** 15-minute client freshness, 30-minute CDN freshness, and one-hour stale-while-revalidate.
 - **ETag:** SHA-256-derived semantic ICS hash; timestamp-only regeneration does not invalidate it.
 - **Supabase CalDAV cache TTL:** 6 hours per master combination.
 - **Supabase ICS output cache TTL:** 1 hour per token.
@@ -95,7 +94,7 @@ npm run test
   - Watch for spikes in `❌ CalDAV cache MISS` (expect one miss per master combo every 6 h).
 - **Supabase dashboard:**
   - Observe table sizes; `caldav_cache` should remain small (hundreds of KB).
-  - Run `SELECT cleanup_expired_caldav_cache();` if expired rows linger.
+  - Expired rows are cleaned on cache writes; investigate service-role/RPC errors if they continue to accumulate.
 - **Synthetic checks:**
   - Optional: schedule `curl` against `/api/health` and a sample calendar URL to ensure 200/304 responses.
 

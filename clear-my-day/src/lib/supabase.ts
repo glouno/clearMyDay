@@ -44,6 +44,17 @@ export function isCacheValid(cacheEntry: AnalyzeEventsCache): boolean {
   return new Date(cacheEntry.expires_at) > new Date();
 }
 
-// Cache TTL (3 months = 90 days * 24 hours)
-// Course groups are stable for entire semester
-export const CACHE_TTL_HOURS = 2160;
+// Schedules and group labels can change during a semester. A daily refresh
+// keeps discovery current without repeatedly downloading full CalDAV feeds.
+export const CACHE_TTL_HOURS = 24;
+
+/** Remove expired cache rows. Call only on cache writes, not on cache hits. */
+export async function cleanupExpiredCaches(): Promise<void> {
+  if (!supabase) return;
+
+  const { error } = await supabase.rpc('cleanup_expired_cache_rows');
+  if (error) {
+    // Cache cleanup is maintenance and must never make calendar generation fail.
+    console.warn('Expired cache cleanup failed:', error.message);
+  }
+}
