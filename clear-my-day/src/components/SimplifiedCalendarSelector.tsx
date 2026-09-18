@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import { FilterConfig } from '@/lib/types';
-import { getConfirmedM1Masters, getConfirmedM2Masters } from '@/lib/sorbonne-masters';
+import { getConfirmedM1Masters, getConfirmedM2Masters, getMasterDisplayName } from '@/lib/sorbonne-masters';
 import { SEMESTER_2_COURSES } from '@/lib/semester-data';
 import MasterLevelSelector, { MasterLevel } from './MasterLevelSelector';
 import { currentAcademicYearStart, dateRangeForPolicy, CalendarWindowPolicy } from '@/lib/date-range-policy';
@@ -52,8 +52,7 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
 
       const courses = master.courses;
 
-      // Extract short name from master ID (e.g., "DAC_M2" -> "DAC", "IMA_M2" -> "IMA")
-      const shortName = masterId.replace('_M2', '').replace('_M1', '');
+      const shortName = getMasterDisplayName(masterId);
 
       return courses.map(course => ({
         // For OIP, make courseId unique per master so each OIP is independent
@@ -228,24 +227,6 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
       }
       return newGroups;
     });
-  };
-
-  const getMasterDisplayName = (masterId: string): string => {
-    if (masterLevel === 'M1') {
-      const displayNames: { [key: string]: string } = {
-        'DAC': 'MIND',
-        'ANDROIDE': 'AI2D',
-        'SFPN': 'CCA'
-      };
-      return displayNames[masterId] || masterId;
-    }
-    if (masterLevel === 'M2') {
-      const displayNames: { [key: string]: string } = {
-        'SFPN_M2': 'CCA'
-      };
-      return displayNames[masterId] || masterId;
-    }
-    return masterId;
   };
 
   const handleMasterChange = (masterId: string, checked: boolean) => {

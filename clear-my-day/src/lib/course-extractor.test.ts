@@ -9,6 +9,7 @@ describe('course extraction', () => {
     ['UM5PYQ03-QIT', 'QIT'],
     ['UM5PYQ04-PhQC', 'PHQC'],
     ['UM5INQ12-AQCrypt-Cours', 'AQCRYPT'],
+    ['UM5IN999-AI-ADAPT-Cours', 'AI-ADAPT'],
     ['UM4LVAN2-Anglais', 'ANGLAIS']
   ])('extracts %s', (summary, expected) => {
     expect(extractCourseFromSummary(summary)).toBe(expected);

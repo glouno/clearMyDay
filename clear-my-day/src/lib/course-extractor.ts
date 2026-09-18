@@ -13,6 +13,7 @@ export function extractCourseFromSummary(summary: string): string | null {
   // The unit identifier is not always numeric: quantum calendars use INQ/PYQ.
   const patterns = [
     /^4I\d+-(?:TD|TME)\d+-([A-Z][A-Z0-9_]*)/i,
+    /^(?:MU|UM)\d+(?:IN|PY)[A-Z0-9]+-([A-Z][A-Z0-9_-]*?)-(?:Cours|TD|TME|TP|Examen|Exam|ER)(?:\b|\d)/i,
     /^(?:MU|UM)\d+(?:IN|PY)[A-Z0-9]+-([A-Z][A-Z0-9_]*)/i
   ];
 
