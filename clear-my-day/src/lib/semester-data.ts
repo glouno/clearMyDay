@@ -3,7 +3,7 @@
 // These generally appeared or were requested for the second semester.
 export const SEMESTER_2_COURSES = new Set([
     // M1 AI2D/ANDROIDE
-    'FOSYMA', 'IHM', 'DJ', 'AROB',
+    'PAI2D', 'FOSYMA', 'IHM', 'DJ', 'AROB',
 
     // M1 BIM
     'SBAS', 'MMCN', 'DEEPLIFE',
@@ -18,7 +18,7 @@ export const SEMESTER_2_COURSES = new Set([
     'QPH4CS', 'THEORIE_DE_SHANNON', 'QIOV', 'PQIAS',
 
     // M1 MIND/DAC
-    'ML', 'MLL', 'RITAL', 'IDLE', 'SAM', 'IAMSI', 'ANGLAIS',
+    'PLMIND', 'ML', 'RITAL', 'IDLE', 'SAM', 'IAMSI', 'DJ', 'ANGLAIS',
 
     // M1 RES
     'ALGORES', 'COMNUM', 'MOB', 'CRV',

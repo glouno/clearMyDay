@@ -36,7 +36,7 @@ For a linked project, apply the versioned files in `supabase/migrations` with `s
    - Installs `cleanup_expired_caldav_cache()` helper function.
 3. `supabase-ics-output-cache-schema.sql`
    - Creates `ics_output_cache`, keyed by subscription token.
-Expired cache rows are removed automatically after a cache-miss write through the private `cleanup_expired_cache_rows()` RPC. This avoids requiring `pg_cron` or exposing a maintenance route. Subscription tokens are not deleted automatically.
+Expired cache rows are removed automatically after a cache-miss write through the private `cleanup_expired_cache_rows()` RPC. The same maintenance pass deletes subscription tokens and generated ICS entries after 180 days without access. This avoids requiring `pg_cron` or exposing a maintenance route.
 
 ### Table Responsibilities
 
@@ -104,7 +104,7 @@ When miss frequency jumps, verify Sorbonne credentials and review `Attempt X fai
 
 ## Routine Maintenance
 
-- **Token hygiene:** Tokens are bearer credentials. Never log or publish them; schedule cleanup based on `last_accessed` if desired.
+- **Token hygiene:** Tokens are bearer credentials. Never log or publish them. The production retention policy removes them after 180 days without access.
 - **Personalized Names**: The system supports personalized calendar names by including the name in the hash used for token generation. This ensures that users see their chosen name in their calendar client while preserving the efficiency of the CalDAV cache, which is keyed only by the selected masters.
 - **Course catalogue updates:** Modify `src/lib/sorbonne-masters.ts` when masters/courses change; update associated tests/UI labels.
 - **Firewall coordination:** Use `docs/domain-notes.md` (firewall observations + French contact template) when working with Sorbonne IT.

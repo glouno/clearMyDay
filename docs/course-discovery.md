@@ -32,4 +32,8 @@ At the start of an academic year:
 3. Add extractor tests before changing a parsing rule.
 4. Keep valid second-semester modules even when they have not appeared in the September feed yet.
 
+Use the official Sorbonne Master Informatique track list as the naming source of truth. Backend IDs such as `DAC_M2`, `ANDROIDE_M2`, `SFPN_M2`, and `IQ_M2` must remain stable because they identify CalDAV paths and saved filters; the website maps them to the modern labels MIND, AI2D, CCA, and QI.
+
+Record the review date and evidence in the pull request. Compare three sets for every track: the curated catalog, the official curriculum, and course codes detected in the current academic-year feed. Add official-only modules when they are valid later-semester choices; investigate feed-only codes before adding them, since they may be aliases, shared courses, or extraction errors.
+
 Do not infer that every historic code returned by an old feed is current. Before the 2026 hardening, analysis included all historical events and kept results for 90 days; this was the source of the stale M2 module list.
