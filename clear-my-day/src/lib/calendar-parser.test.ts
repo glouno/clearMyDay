@@ -62,4 +62,11 @@ describe('calendar event filtering', () => {
     expect(parser.filterEvents([td], filter({ courseGroups: { DALAS: '1' } }))).toHaveLength(1);
     expect(parser.filterEvents([td], filter({ courseGroups: { DALAS: '2' } }))).toHaveLength(0);
   });
+
+  it('filters quantum course identifiers with non-numeric unit codes', () => {
+    const parser = new CalendarParser();
+    const quantum = event({ summary: 'UM5INQ01-QAlg-Cours' });
+    expect(parser.filterEvents([quantum], filter({ courses: ['QALG'] }))).toHaveLength(1);
+    expect(parser.filterEvents([quantum], filter({ courses: ['QCRYPT'] }))).toHaveLength(0);
+  });
 });

@@ -4,39 +4,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { caldavClient } from '@/lib/caldav-client';
 import { SORBONNE_CALENDARS } from '@/lib/constants';
 import { CalendarEvent, CalendarFetchResult } from '@/lib/types';
-import { supabase, isCacheValid, CACHE_TTL_HOURS } from '@/lib/supabase';
+import { supabase, isCacheValid, CACHE_TTL_HOURS, cleanupExpiredCaches } from '@/lib/supabase';
+import { CalendarParser } from '@/lib/calendar-parser';
+import { currentAcademicYearStart, dateRangeForPolicy } from '@/lib/date-range-policy';
+import { extractCourseFromSummary } from '@/lib/course-extractor';
 
-// Simple course extractor helper
-function extractCourseFromSummary(summary: string): string | null {
-  if (!summary) return null;
-
-  if (/\b(OIP|INOIP)\b/i.test(summary)) return 'OIP';
-  if (/\bLVAN\b/i.test(summary) || /anglais/i.test(summary)) return 'ANGLAIS';
-
-  // Try standard patterns
-  const patterns = [
-    /^4I\d+-(?:TD|TME)\d+-([A-Z]+)/i,
-    /^(?:MU|UM)\d+IN\d+-([A-Z]+)-/i,
-    /(?:MU|UM)\d+IN\d+-([A-Z]+)-(?:TD|TME|Cours|ER)/i
-  ];
-
-  for (const pattern of patterns) {
-    const match = summary.match(pattern);
-    if (match) return match[1].toUpperCase();
-  }
-
-  // Fallback: splitting by hyphen
-  if (/^(?:UM|MU|4I)/i.test(summary)) {
-    const excludeTokens = new Set(['UM', 'MU', 'IN', 'TD', 'TME', 'TP', 'COURS', 'EXAM', 'EXAMEN', 'SALLE', 'AMPHI', 'GROUPE', 'GROUP', 'GR']);
-    const candidates = summary.split('-')
-      .map(t => t.trim())
-      .filter(t => t.length >= 2 && t.length <= 10 && /^[A-Z]{2,10}$/.test(t) && !excludeTokens.has(t));
-
-    if (candidates.length > 0) return candidates[0].toUpperCase();
-  }
-
-  return null;
-}
+const ANALYSIS_CACHE_VERSION = 'v2';
 
 interface EventAnalysis {
   summary: string;
@@ -135,6 +108,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const sources = searchParams.get('sources')?.split(',') || ['DAC'];
     const courseFilter = searchParams.get('course'); // Optional course filter
+    const academicYearStart = currentAcademicYearStart();
+    const academicYearRange = dateRangeForPolicy('academic-year', academicYearStart);
+    const cacheKeyFor = (source: string) =>
+      `analyze-events-${ANALYSIS_CACHE_VERSION}-${academicYearStart}-${source}`;
 
     const validSources = sources.filter(source =>
       Object.keys(SORBONNE_CALENDARS).includes(source)
@@ -155,7 +132,7 @@ export async function GET(request: NextRequest) {
     if (supabase) {
       for (const source of validSources) {
         try {
-          const cacheKey = `analyze-events-${source}`; // Individual cache key
+          const cacheKey = cacheKeyFor(source);
           const { data: cachedData, error } = await supabase
             .from('analyze_events_cache')
             .select('*')
@@ -198,13 +175,20 @@ export async function GET(request: NextRequest) {
         for (const source of sourcesToFetch) {
           const result = fetchResults[source];
           if (result && result.success) {
-            const sourceAnalysis = await analyzeSourceEvents(source, result.events, courseFilter);
+            const currentEvents = new CalendarParser().filterEvents(result.events, {
+              masters: [source],
+              courses: [],
+              groups: { td: '', tme: '' },
+              courseGroups: {},
+              dateRange: academicYearRange
+            });
+            const sourceAnalysis = await analyzeSourceEvents(source, currentEvents, courseFilter);
             fetchedResults[source] = sourceAnalysis;
 
             // Cache this individual source result
             if (supabase) {
               try {
-                const cacheKey = `analyze-events-${source}`;
+                const cacheKey = cacheKeyFor(source);
                 const expiresAt = new Date();
                 expiresAt.setHours(expiresAt.getHours() + CACHE_TTL_HOURS);
 
@@ -243,6 +227,8 @@ export async function GET(request: NextRequest) {
           };
         }
       }
+
+      await cleanupExpiredCaches();
     }
 
     // Combine cached and fetched results

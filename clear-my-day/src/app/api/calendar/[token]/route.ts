@@ -6,7 +6,7 @@ import { CalendarStorage, CalendarConfig } from '@/lib/calendar-storage';
 import { caldavClient } from '@/lib/caldav-client';
 import { ICSGenerator } from '@/lib/ics-generator';
 import { CalendarParser } from '@/lib/calendar-parser';
-import { supabase } from '@/lib/supabase';
+import { cleanupExpiredCaches, supabase } from '@/lib/supabase';
 import { CalendarEvent } from '@/lib/types';
 import { APP_CONFIG } from '@/lib/constants';
 import { resolveDateRange } from '@/lib/date-range-policy';
@@ -216,6 +216,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             });
 
           console.log(`💾 Cached CalDAV response for ${caldavCacheKey} (expires in ${APP_CONFIG.CALDAV_CACHE_TTL_HOURS} hours)`);
+          await cleanupExpiredCaches();
         } catch (cacheError: unknown) {
           console.warn('Failed to cache CalDAV response:', cacheError);
         }

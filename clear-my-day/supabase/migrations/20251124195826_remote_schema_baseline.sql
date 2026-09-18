@@ -1,0 +1,3 @@
+-- Baseline marker for the schema that predates migration tracking in this
+-- repository. The existing production objects are documented by the
+-- top-level supabase-*-schema.sql files.

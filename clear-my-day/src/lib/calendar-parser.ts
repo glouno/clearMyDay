@@ -3,38 +3,7 @@
 import { CalendarEvent, FilterConfig, GroupDetectionResult } from './types';
 import { GROUP_PATTERNS, COURSE_PATTERNS, APP_CONFIG } from './constants';
 import { rrulestr } from 'rrule';
-
-// Simple course extractor helper
-function extractCourseFromSummary(summary: string): string | null {
-  if (!summary) return null;
-
-  if (/\b(OIP|INOIP)\b/i.test(summary)) return 'OIP';
-  if (/\bLVAN\b/i.test(summary) || /anglais/i.test(summary)) return 'ANGLAIS';
-
-  // Try standard patterns
-  const patterns = [
-    /^4I\d+-(?:TD|TME)\d+-([A-Z]+)/i,
-    /^(?:MU|UM)\d+IN\d+-([A-Z]+)-/i,
-    /(?:MU|UM)\d+IN\d+-([A-Z]+)-(?:TD|TME|Cours|ER)/i
-  ];
-
-  for (const pattern of patterns) {
-    const match = summary.match(pattern);
-    if (match) return match[1].toUpperCase();
-  }
-
-  // Fallback: splitting by hyphen
-  if (/^(?:UM|MU|4I)/i.test(summary)) {
-    const excludeTokens = new Set(['UM', 'MU', 'IN', 'TD', 'TME', 'TP', 'COURS', 'EXAM', 'EXAMEN', 'SALLE', 'AMPHI', 'GROUPE', 'GROUP', 'GR']);
-    const candidates = summary.split('-')
-      .map(t => t.trim())
-      .filter(t => t.length >= 2 && t.length <= 10 && /^[A-Z]{2,10}$/.test(t) && !excludeTokens.has(t));
-
-    if (candidates.length > 0) return candidates[0].toUpperCase();
-  }
-
-  return null;
-}
+import { extractCourseFromSummary } from './course-extractor';
 
 export class CalendarParser {
   /**
@@ -316,7 +285,7 @@ export class CalendarParser {
     // Include events with course codes or academic keywords
     const academicPatterns = [
       /4I\d+/i,           // Old format: 4I801, 4I802, etc.
-      /(?:MU|UM)\d+IN\d+/i, // M1/M2 formats: MU4IN801, UM5IN872, etc.
+      /(?:MU|UM)\d+(?:IN|PY)[A-Z0-9]+/i, // Includes IQ formats such as UM5INQ01/UM5PYQ03.
       /td\d+/i,           // TD sessions
       /tme\d+/i,          // TME sessions
       /cours/i,           // Courses
