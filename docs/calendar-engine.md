@@ -116,7 +116,7 @@ The system employs a multi-layered caching strategy to ensure high performance a
 ### 2. Group Analysis Cache (`analyze_events_cache`)
 
 - **Purpose**: To cache the results of the `/api/analyze-events` endpoint, which detects available TD/TME groups.
-- **Mechanism**: Each master's current-academic-year analysis is cached **independently** with a versioned key (for example `analyze-events-v3-2026-DAC`). When multiple masters are requested, the system fetches only the uncached ones and merges the results.
+- **Mechanism**: Each master's current-academic-year analysis is cached **independently** with a versioned key (for example `analyze-events-v4-2026-DAC`). When multiple masters are requested, the system fetches only the uncached ones and merges the results.
 - **TTL**: 24 hours. Timetables and group labels can change during a semester.
 - **Benefit**: Provides instantaneous group detection in the UI for almost all user interactions after the first visit.
 
