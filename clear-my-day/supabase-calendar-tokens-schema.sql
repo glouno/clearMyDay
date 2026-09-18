@@ -44,5 +44,5 @@ CREATE TRIGGER update_calendar_token_access
   FOR EACH ROW
   EXECUTE FUNCTION update_last_accessed();
 
--- Clean up old tokens (run this periodically or set up a cron job)
--- DELETE FROM calendar_tokens WHERE last_accessed < NOW() - INTERVAL '30 days';
+-- Production migrations install a 180-day inactivity retention policy. The
+-- cleanup runs through the private cleanup_expired_cache_rows() RPC.
