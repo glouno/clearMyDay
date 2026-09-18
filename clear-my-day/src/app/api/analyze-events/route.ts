@@ -9,7 +9,7 @@ import { CalendarParser } from '@/lib/calendar-parser';
 import { currentAcademicYearStart, dateRangeForPolicy } from '@/lib/date-range-policy';
 import { extractCourseFromSummary } from '@/lib/course-extractor';
 
-const ANALYSIS_CACHE_VERSION = 'v4';
+const ANALYSIS_CACHE_VERSION = 'v5';
 
 interface EventAnalysis {
   summary: string;
@@ -332,6 +332,9 @@ export async function GET(request: NextRequest) {
 // Helper function to analyze events from a single source
 async function analyzeSourceEvents(source: string, events: CalendarEvent[], courseFilter?: string | null) {
   const courseAnalysis: CourseAnalysis = {};
+  const configuredCourses = new Set(
+    (SORBONNE_CALENDARS[source]?.courses ?? []).map(course => course.toUpperCase())
+  );
   const patternCounts = new Map<string, number>();
   const eventAnalyses: EventAnalysis[] = [];
 
@@ -350,7 +353,9 @@ async function analyzeSourceEvents(source: string, events: CalendarEvent[], cour
     patternCounts.set(patternKey, (patternCounts.get(patternKey) || 0) + 1);
 
     // Build course analysis
-    if (analysis.course) {
+    // Group detection serves the curated selector. Keep unknown feed tokens in
+    // topPatterns for audits, but do not expose room/group labels as modules.
+    if (analysis.course && configuredCourses.has(analysis.course)) {
       if (!courseAnalysis[analysis.course]) {
         courseAnalysis[analysis.course] = {
           totalEvents: 0,
