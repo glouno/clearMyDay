@@ -109,7 +109,7 @@ export const ALL_SORBONNE_MASTERS: Record<string, SorborneCalendarSource> = {
     id: 'DAC_M2',
     name: 'M2 MIND (Machine learning, INtelligence artificielle et Données)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/DAC/M2_DAC',
-    courses: ['DEEP', 'LSDA', 'XAI', 'MEDS', 'RDFIA', 'GDC', 'SACE', 'RL', 'ADL', 'LLM', 'OIP'],
+    courses: ['DEEP-L', 'LSDA', 'XAI', 'MEDS', 'RDFIA', 'GDC', 'SACE', 'RL', 'ADL', 'LLM', 'OIP'],
     defaultGroups: {}
   },
   IMA_M2: {
