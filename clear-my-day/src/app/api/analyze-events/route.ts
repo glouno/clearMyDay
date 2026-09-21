@@ -9,7 +9,7 @@ import { CalendarParser } from '@/lib/calendar-parser';
 import { currentAcademicYearStart, dateRangeForPolicy } from '@/lib/date-range-policy';
 import { extractCourseFromSummary } from '@/lib/course-extractor';
 
-const ANALYSIS_CACHE_VERSION = 'v5';
+const ANALYSIS_CACHE_VERSION = 'v6';
 
 interface EventAnalysis {
   summary: string;

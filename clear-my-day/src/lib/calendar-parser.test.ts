@@ -69,4 +69,11 @@ describe('calendar event filtering', () => {
     expect(parser.filterEvents([quantum], filter({ courses: ['QALG'] }))).toHaveLength(1);
     expect(parser.filterEvents([quantum], filter({ courses: ['QCRYPT'] }))).toHaveLength(0);
   });
+
+  it('keeps DEEP-L events when the M2 MIND course is selected', () => {
+    const parser = new CalendarParser();
+    const deepLearning = event({ summary: 'UM5IN861-DEEP-L-TME1' });
+    expect(parser.filterEvents([deepLearning], filter({ courses: ['DEEP-L'] }))).toHaveLength(1);
+    expect(parser.filterEvents([deepLearning], filter({ courses: ['DEEP'] }))).toHaveLength(0);
+  });
 });
