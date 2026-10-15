@@ -350,7 +350,7 @@ npm run lint
 1. Verify `CALDAV_USERNAME` and `CALDAV_PASSWORD`
 2. Check Sorbonne server status
 3. Review retry logs (client retries 3x with backoff)
-4. Check firewall settings (see `docs/domain-notes.md`)
+4. Check connectivity from the deployed server to the configured CalDAV endpoint. The previous Sorbonne Wi-Fi restriction on browser access to ClearMyDay is resolved; see [domain notes](domain-notes.md#sorbonne-wi-fi-access) for that incident's status.
 
 ---
 

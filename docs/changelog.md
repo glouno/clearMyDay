@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Remove the obsolete Sorbonne Wi-Fi homepage warning after Paul confirmed access on 15 October 2026, avoiding its delayed layout shift.
+- Retire the old mobile-data workaround and IT unblocking template. Update the domain notes, application README, and operations/deployment guides with the resolved status and steps for investigating a new incident.
+
 ## 2026-09-08 — Academic-year-pinned subscriptions
 
 - Pinned every generated subscription to an explicit academic year so a URL never silently replaces historical events with the next cohort's timetable.

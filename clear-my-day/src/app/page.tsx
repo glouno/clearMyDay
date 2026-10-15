@@ -3,7 +3,6 @@
 import React, { useCallback, useState } from 'react';
 import SimplifiedCalendarSelector from '@/components/SimplifiedCalendarSelector';
 import WeeklyCalendarPreview from '@/components/WeeklyCalendarPreview';
-import SorbonneWifiWarning from '@/components/SorbonneWifiWarning';
 import { FilterConfig } from '@/lib/types';
 
 export default function Home() {
@@ -23,9 +22,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
-        {/* Warning for Sorbonne WiFi users */}
-        <SorbonneWifiWarning />
-        
         <SimplifiedCalendarSelector
           onFilterChange={handleFilterChange}
           onPreview={() => {}}

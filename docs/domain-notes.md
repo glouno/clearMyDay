@@ -1,55 +1,23 @@
 # Domain Notes
 
-Reference material for issues tied to Sorbonne infrastructure, network restrictions, and programme catalogues.
+Reference material for Sorbonne network access, incident reporting, and programme catalogues.
 
 ---
 
-## Firewall Behaviour (Sorbonne Wi-Fi)
+## Sorbonne Wi-Fi Access
 
-- HTTPS traffic is inspected and re-signed by `pare-feu.sorbonne-universite.fr`, causing certificate warnings for `clearmyday.com`.
-- Domains categorised as “newly-registered” or “web hosting” are blocked outright; Vercel preview URLs fall into this bucket.
-- Workarounds for students:
-  - Use mobile data once to generate the subscription URL (calendars continue syncing afterwards).
-  - Connect through a personal hotspot or any off-campus network.
-  - Provide a QR code linking to the app for quick mobile access.
+**Status updated 15 October 2026:** Paul confirmed that `clearmyday.com` is accessible on Sorbonne Wi-Fi again. The previous domain-blocking incident is resolved, and the homepage warning is being removed with this change.
 
-### Long-term Fix (IT Whitelisting)
+Students can use the production website on the university network. The mobile-data workaround and IT unblocking request for the old incident are retired.
 
-Email template (French) to request domain whitelisting:
+Earlier reports of certificate interception and domain-category blocking remain in Git history. The confirmation above covers `clearmyday.com`; it does not establish the current status of every Vercel preview URL.
 
-```
-Objet : Demande de déblocage du site clearmyday.com
+### Investigating a New Access Incident
 
-Bonjour,
-
-Je suis étudiant en Master Informatique à Sorbonne Université. J'ai développé
-l'outil https://www.clearmyday.com qui permet de filtrer les calendriers
-des masters (DAC, IMA, ANDROIDE) et de générer un lien compatible Apple/Google
-Calendar.
-
-Le pare-feu bloque actuellement le site (catégorie « web hosting » ou
-« newly-registered domain ») et remplace le certificat SSL. Pourriez-vous ajouter
-ces domaines à la liste blanche ?
-  - clearmyday.com
-  - clearmyday.com
-
-Hébergement : Vercel (IP dynamiques via CDN). Déblocage recommandé par nom de
-domaine plutôt que par IP fixe.
-
-Merci pour votre aide.
-
-Cordialement,
-Paul Béglin – Master Informatique MIND
-```
-
-Fields often required on firewall forms:
-
-```
-Destination : clearmyday.com
-Port        : 443
-Protocole   : HTTPS (TCP)
-Note        : Hébergé sur Vercel (IP dynamiques), mieux vaut autoriser le domaine.
-```
+1. Record the exact URL, date/time, network, and HTTP or certificate error.
+2. Compare the same URL on Sorbonne Wi-Fi and another network, and check the deployment and `/api/health` status.
+3. Distinguish browser-to-website access problems from server-side CalDAV fetch failures. See [deployment troubleshooting](deployment.md#caldav-fetch-fails) for the latter.
+4. If the evidence identifies a new university-network restriction, contact Sorbonne IT with the details below and update this page with the outcome.
 
 ---
 
@@ -71,10 +39,10 @@ For the complete, up-to-date list, consult the codebase file mentioned above.
 
 ## Contact Checklist
 
-When escalating to Sorbonne IT:
+When escalating a confirmed new network-access incident to Sorbonne IT:
 
-- Highlight that ClearMyDay reduces load on the CalDAV servers by filtering (>99% noise reduction).
-- Mention that calendars are hosted on Vercel with dynamic IPs; domain-based allow-listing is necessary.
-- Provide `clearmyday.com` and explain the educational use case.
+- Include the affected hostname, timestamp, network, exact error, and comparison with another network.
+- Explain that ClearMyDay provides personalised university calendar subscriptions.
+- Mention Vercel hosting with dynamic CDN IPs. If IT requests an allow-list entry, supply the affected hostname and HTTPS port 443.
 
 Keep a record of communications (ticket numbers, contacts) to avoid duplicate requests.
