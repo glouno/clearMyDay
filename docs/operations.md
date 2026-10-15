@@ -107,7 +107,7 @@ When miss frequency jumps, verify Sorbonne credentials and review `Attempt X fai
 - **Token hygiene:** Tokens are bearer credentials. Never log or publish them. The production retention policy removes them after 180 days without access.
 - **Personalized Names**: The system supports personalized calendar names by including the name in the hash used for token generation. This ensures that users see their chosen name in their calendar client while preserving the efficiency of the CalDAV cache, which is keyed only by the selected masters.
 - **Course catalogue updates:** Modify `src/lib/sorbonne-masters.ts` when masters/courses change; update associated tests/UI labels.
-- **Firewall coordination:** Use `docs/domain-notes.md` (firewall observations + French contact template) when working with Sorbonne IT.
+- **Network-access reports:** The previous Sorbonne Wi-Fi block is resolved as of 15 October 2026, following Paul's confirmation. Use [domain notes](domain-notes.md#sorbonne-wi-fi-access) to investigate a new incident before escalating to IT.
 - **Rate limit tuning:** Default limiter ≈60 requests/hour/IP; adjust if usage grows.
 
 ---
@@ -125,4 +125,4 @@ When miss frequency jumps, verify Sorbonne credentials and review `Attempt X fai
 
 ---
 
-For domain-specific knowledge (firewall, contact emails, master lists) see `docs/domain-notes.md`. Major historical changes are summarised in `docs/changelog.md`.
+For Sorbonne network-access status, incident reporting, and master lists, see [domain notes](domain-notes.md). Major historical changes are summarised in [the changelog](changelog.md).

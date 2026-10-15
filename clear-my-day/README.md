@@ -121,15 +121,16 @@ npm run build       # Production build check
 
 - **Calendar shows stale events:** caches expire after 6 hours; Apple/Google may additionally cache for 1‑24 hours. Advise users to refresh or wait for expiry.
 - **OIP/INOIP events missing:** ensure the relevant master is selected; parser recognises OIP and applies group filtering (`Groupe`, `Gr`, `TD`, `TME`).
-- **Sorbonne network blocks requests:** see `../SORBONNE_FIREWALL_ISSUE.md` for the mitigation summary and contact template.
 - **Supabase outage:** the service falls back to in-memory configs until Supabase reconnects; tokens created during downtime will be lost.
+
+**Sorbonne Wi-Fi access:** Paul confirmed `clearmyday.com` is accessible again on 15 October 2026. The old warning and unblocking guidance are being retired with this change. See [domain notes](../docs/domain-notes.md#sorbonne-wi-fi-access) for the current status and investigation steps if a new access issue occurs.
 
 ---
 
 ## Further Reading
 
-- `../CHANGELOG.md` — condensed history of major fixes and architecture shifts.
-- `../SORBONNE_FIREWALL_ISSUE.md` — notes on university firewall behaviour and an email template for IT support.
+- [Changelog](../docs/changelog.md) — condensed history of major fixes and architecture shifts.
+- [Domain notes](../docs/domain-notes.md) — current Sorbonne network-access status, incident reporting, and programme catalogue references.
 - Source modules contain inline comments outlining key parsing and caching logic.
 
 ---
