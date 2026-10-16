@@ -81,6 +81,20 @@ npm run dev
 
 Visit `http://localhost:3000`.
 
+### Private Tailscale Preview (Paris WSL)
+
+Open **https://paris-devbox-wsl.minmi-stonecat.ts.net:32443/** with Tailscale connected. The supervised user service `clearmyday-preview.service` serves the production build on loopback `127.0.0.1:3038`. The devbox must stay awake.
+
+From this application directory, rebuild with `npm run build`, then restart with `systemctl --user restart clearmyday-preview`. Inspect it with `systemctl --user status clearmyday-preview`.
+
+The Serve mapping persists, but the transient service must be started again after reboot:
+
+```bash
+systemd-run --user --unit=clearmyday-preview --working-directory="$PWD" --property=Restart=on-failure /home/glouno/.local/share/mise/installs/node/24.21.0/bin/node "$PWD/node_modules/next/dist/bin/next" start --hostname 127.0.0.1 --port 3038
+```
+
+This local preview runs without server-side Supabase credentials, so persistence and caching are disabled.
+
 ### Useful Commands
 ```bash
 npm run lint        # ESLint
