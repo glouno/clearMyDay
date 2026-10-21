@@ -104,6 +104,7 @@ When miss frequency jumps, verify Sorbonne credentials and review `Attempt X fai
 
 ## Routine Maintenance
 
+- **Dependency security:** See the [dependency security review](dependency-security.md) for patched versions, the remaining unpatched development-tooling finding, and the update verification workflow.
 - **Token hygiene:** Tokens are bearer credentials. Never log or publish them. The production retention policy removes them after 180 days without access.
 - **Personalized Names**: The system supports personalized calendar names by including the name in the hash used for token generation. This ensures that users see their chosen name in their calendar client while preserving the efficiency of the CalDAV cache, which is keyed only by the selected masters.
 - **Course catalogue updates:** Modify `src/lib/sorbonne-masters.ts` when masters/courses change; update associated tests/UI labels.
