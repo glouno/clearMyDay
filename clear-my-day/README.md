@@ -30,7 +30,7 @@ Calendar app → /api/calendar/[token] → Supabase calendar_tokens →
 - `src/lib/caldav-client.ts` — Fetches and parses Sorbonne CalDAV data. Results are cached in Supabase (`caldav_cache`) for 6 hours, shared across all users requesting the same master combination.
 - `src/lib/calendar-parser.ts` — Filters events, expands recurring series, and honours `RECURRENCE-ID` and `EXDATE` overrides.
 - `src/lib/ics-generator.ts` — Emits RFC 5545 compliant feeds with stable UIDs, ETags, and Europe/Paris timezone definitions.
-- `src/lib/calendar-storage.ts` — Reads/writes subscription configs in Supabase with an in-memory development fallback.
+- `src/lib/calendar-storage.ts` — Reads/writes subscription configs in Supabase and returns an explicit `durable`, `memory-only`, or `failed` save outcome. The in-memory fallback is for development only.
 
 ### Data & Caching
 
@@ -121,7 +121,7 @@ npm run build       # Production build check
 
 - **Calendar shows stale events:** caches expire after 6 hours; Apple/Google may additionally cache for 1‑24 hours. Advise users to refresh or wait for expiry.
 - **OIP/INOIP events missing:** ensure the relevant master is selected; parser recognises OIP and applies group filtering (`Groupe`, `Gr`, `TD`, `TME`).
-- **Supabase outage:** the service falls back to in-memory configs until Supabase reconnects; tokens created during downtime will be lost.
+- **Supabase outage or missing credentials:** production subscription generation returns a retryable HTTP 503 without a subscription URL when persistence is unconfirmed. Selections stay available for retry. A failed update of an existing token does not acknowledge new settings; its old persistent config can still resolve. In development, a `memory-only` response and the URL dialog explicitly warn that the temporary URL can disappear after restart or fail on another instance. Preview still creates no subscription records.
 
 **Sorbonne Wi-Fi access:** Paul confirmed `clearmyday.com` is accessible again on 15 October 2026. The old warning and unblocking guidance are being retired with this change. See [domain notes](../docs/domain-notes.md#sorbonne-wi-fi-access) for the current status and investigation steps if a new access issue occurs.
 

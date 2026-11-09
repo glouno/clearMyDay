@@ -27,6 +27,7 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [showUrlModal, setShowUrlModal] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState('');
+  const [persistenceWarning, setPersistenceWarning] = useState('');
 
   // Get available masters based on selected level
   const availableMasters = useMemo(
@@ -319,6 +320,7 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
       const data = await response.json();
       if (data.success) {
         setGeneratedUrl(data.data.subscriptionUrl);
+        setPersistenceWarning(data.persistence === 'memory-only' ? data.warning : '');
         setShowUrlModal(true);
       } else {
         alert('Failed to generate calendar: ' + data.error);
@@ -516,8 +518,12 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
       {showUrlModal && (
         <div className="fixed inset-0 bg-white/40 backdrop-blur-xl flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-white/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/20 max-w-2xl w-full p-6 sm:p-8 animate-scale-up">
-            <h3 className="text-xl font-semibold text-gray-900 mb-3">Calendar Generated Successfully! 🎉</h3>
-            <p className="text-sm text-gray-600 mb-4">Copy the URL below and add it to your calendar app:</p>
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">
+              {persistenceWarning ? 'Temporary Calendar URL' : 'Calendar Generated Successfully! 🎉'}
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {persistenceWarning || 'Copy the URL below and add it to your calendar app:'}
+            </p>
 
             <div className="bg-white/60 backdrop-blur-md border border-gray-200/50 rounded-xl p-4 mb-5 shadow-inner">
               <p className="text-sm text-gray-800 break-all font-mono leading-relaxed">{generatedUrl}</p>

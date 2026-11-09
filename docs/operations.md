@@ -47,14 +47,16 @@ Expired cache rows are removed automatically after a cache-miss write through th
 
 `dateRangePolicy` and `academicYearStart` are stored inside the existing `calendar_tokens.filter` JSONB value. Adding or changing them does not require a database migration. Each subscription is pinned to that academic year; legacy rows without the fields infer the year from token creation time and their original range.
 
-If Supabase is unreachable, the app falls back to an in-memory `Map`. Subscriptions created during downtime will be lost.
+Production subscription generation requires a confirmed Supabase write. Missing credentials or a failed write returns HTTP 503 with `success: false`, `persistence: "failed"`, and `retryable: true`, without a subscription URL. The selector retains selections for retry. A failed refresh of an existing token does not acknowledge new settings; the previous persistent configuration remains available if the backend can serve it.
+
+Development retains the process-local `Map` fallback. Its response reports `persistence: "memory-only"` with a temporary-URL warning, also shown in the URL dialog. These URLs do not survive process restart or work reliably across instances. Confirmed writes report `persistence: "durable"`; normalized token identity and policy/year pinning are unchanged. Preview creates no subscription records.
 
 ---
 
 ## Request Flow & Caching
 
 1. Calendar client requests `GET /api/calendar/[token]`.
-2. Subscription config loads from `calendar_tokens` (in-memory fallback if Supabase down).
+2. Subscription config loads from `calendar_tokens` (temporary in-memory fallback in development).
 3. CalDAV events load from Supabase cache; on miss, `caldav-client` downloads the full source with GET to preserve EXDATE data, then filters locally.
 4. `calendar-parser` filters events, applies `RECURRENCE-ID` overrides, and removes `EXDATE` occurrences.
 5. `ics-generator` returns RFC 5545-compliant ICS (Europe/Paris timezone, deterministic UIDs) plus caching headers.
@@ -120,7 +122,7 @@ When miss frequency jumps, verify Sorbonne credentials and review `Attempt X fai
 - **CalDAV fetch failures**
   - Validate credentials, inspect REPORT payload, and monitor retry logs. Sorbonne servers occasionally throttle.
 - **Supabase outage**
-  - Service falls back to in-memory store. Warn users that subscriptions created during downtime may need regeneration.
+  - Production generation returns a retryable persistence error; restore backend availability and retry with the retained selections. Existing subscriptions keep their tokens, and may resolve their previous configuration. Only development offers explicitly temporary in-memory URLs.
 - **Unexpected CPU increase**
   - Ensure cache headers/TTL match the values above. Revert to a previous commit if a regression shortened caching intervals.
 
