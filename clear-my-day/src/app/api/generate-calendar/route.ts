@@ -41,23 +41,18 @@ export async function POST(request: NextRequest) {
     };
     
     // Check if a token with the same configuration already exists (deduplication)
-    let token = await CalendarStorage.findExisting(config);
-    
-    if (!token) {
-      // Generate unique token for new configuration
-      token = uuidv4();
-      
-      // Store the configuration in Supabase
-      const saved = await CalendarStorage.set(token, config);
-      if (!saved) {
-        console.warn('Failed to save to Supabase, but continuing with fallback storage');
-      }
-    } else {
-      // Update stored config even when reusing a token, so dateRange doesn't become stale
-      const saved = await CalendarStorage.set(token, config);
-      if (!saved) {
-        console.warn('Failed to update config in Supabase, but continuing with existing token');
-      }
+    const token = await CalendarStorage.findExisting(config) || uuidv4();
+
+    // Refresh reused tokens too, but acknowledge only this confirmed save.
+    const persistence = await CalendarStorage.set(token, config);
+    if (persistence === 'failed'
+      || (process.env.NODE_ENV === 'production' && persistence !== 'durable')) {
+      return NextResponse.json({
+        success: false,
+        persistence: 'failed',
+        retryable: true,
+        error: 'Calendar persistence could not be confirmed. Please retry. Existing subscriptions may still use their previous settings.'
+      }, { status: 503 });
     }
 
     // Generate subscription URL
@@ -69,6 +64,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      persistence,
+      ...(persistence === 'memory-only' ? {
+        warning: 'Temporary development URL: saved only in this server process. It may stop working after a restart or on another instance.'
+      } : {}),
       data: {
         token,
         subscriptionUrl,
