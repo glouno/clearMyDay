@@ -3,10 +3,9 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import { FilterConfig } from '@/lib/types';
-import { getConfirmedM1Masters, getConfirmedM2Masters, getMasterDisplayName } from '@/lib/sorbonne-masters';
+import { getConfirmedM1Masters, getConfirmedM2Masters } from '@/lib/sorbonne-masters';
 import { SEMESTER_2_COURSES } from '@/lib/semester-data';
 import MasterLevelSelector, { MasterLevel } from './MasterLevelSelector';
-import { currentAcademicYearStart, dateRangeForPolicy, CalendarWindowPolicy } from '@/lib/date-range-policy';
 
 interface SimplifiedCalendarSelectorProps {
   onFilterChange: (filter: FilterConfig) => void;
@@ -27,7 +26,6 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [showUrlModal, setShowUrlModal] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState('');
-  const [persistenceWarning, setPersistenceWarning] = useState('');
 
   // Get available masters based on selected level
   const availableMasters = useMemo(
@@ -36,13 +34,29 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
   );
 
   const getDateRange = useCallback(() => {
-    const policy: CalendarWindowPolicy = semesterPreset === 'S1'
-      ? 'semester-1'
-      : semesterPreset === 'S2'
-        ? 'semester-2'
-        : 'academic-year';
-    const academicYearStart = currentAcademicYearStart();
-    return { policy, academicYearStart, ...dateRangeForPolicy(policy, academicYearStart) };
+    const now = new Date();
+    if (semesterPreset === 'ALL') {
+      const startDate = new Date(now);
+      startDate.setDate(startDate.getDate() - 30);
+      const endDate = new Date(now);
+      endDate.setDate(endDate.getDate() + 365);
+      return { start: startDate, end: endDate };
+    }
+
+    const month = now.getMonth();
+    const academicYearStart = month >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+
+    if (semesterPreset === 'S1') {
+      return {
+        start: new Date(academicYearStart, 8, 1),
+        end: new Date(academicYearStart + 1, 1, 1)
+      };
+    }
+
+    return {
+      start: new Date(academicYearStart + 1, 1, 1),
+      end: new Date(academicYearStart + 1, 6, 1)
+    };
   }, [semesterPreset]);
 
   // Get available courses based on selected masters with master context
@@ -53,7 +67,8 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
 
       const courses = master.courses;
 
-      const shortName = getMasterDisplayName(masterId);
+      // Extract short name from master ID (e.g., "DAC_M2" -> "DAC", "IMA_M2" -> "IMA")
+      const shortName = masterId.replace('_M2', '').replace('_M1', '');
 
       return courses.map(course => ({
         // For OIP, make courseId unique per master so each OIP is independent
@@ -148,9 +163,7 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
       dateRange: {
         start: range.start,
         end: range.end
-      },
-      dateRangePolicy: range.policy,
-      academicYearStart: range.academicYearStart
+      }
     };
 
     onFilterChange(filter);
@@ -228,6 +241,24 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
       }
       return newGroups;
     });
+  };
+
+  const getMasterDisplayName = (masterId: string): string => {
+    if (masterLevel === 'M1') {
+      const displayNames: { [key: string]: string } = {
+        'DAC': 'MIND',
+        'ANDROIDE': 'AI2D',
+        'SFPN': 'CCA'
+      };
+      return displayNames[masterId] || masterId;
+    }
+    if (masterLevel === 'M2') {
+      const displayNames: { [key: string]: string } = {
+        'SFPN_M2': 'CCA'
+      };
+      return displayNames[masterId] || masterId;
+    }
+    return masterId;
   };
 
   const handleMasterChange = (masterId: string, checked: boolean) => {
@@ -310,9 +341,7 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
             dateRange: {
               start: range.start,
               end: range.end
-            },
-            dateRangePolicy: range.policy,
-            academicYearStart: range.academicYearStart
+            }
           }
         })
       });
@@ -320,7 +349,6 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
       const data = await response.json();
       if (data.success) {
         setGeneratedUrl(data.data.subscriptionUrl);
-        setPersistenceWarning(data.persistence === 'memory-only' ? data.warning : '');
         setShowUrlModal(true);
       } else {
         alert('Failed to generate calendar: ' + data.error);
@@ -518,12 +546,8 @@ export default function SimplifiedCalendarSelector({ onFilterChange }: Simplifie
       {showUrlModal && (
         <div className="fixed inset-0 bg-white/40 backdrop-blur-xl flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-white/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/20 max-w-2xl w-full p-6 sm:p-8 animate-scale-up">
-            <h3 className="text-xl font-semibold text-gray-900 mb-3">
-              {persistenceWarning ? 'Temporary Calendar URL' : 'Calendar Generated Successfully! 🎉'}
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              {persistenceWarning || 'Copy the URL below and add it to your calendar app:'}
-            </p>
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">Calendar Generated Successfully! 🎉</h3>
+            <p className="text-sm text-gray-600 mb-4">Copy the URL below and add it to your calendar app:</p>
 
             <div className="bg-white/60 backdrop-blur-md border border-gray-200/50 rounded-xl p-4 mb-5 shadow-inner">
               <p className="text-sm text-gray-800 break-all font-mono leading-relaxed">{generatedUrl}</p>

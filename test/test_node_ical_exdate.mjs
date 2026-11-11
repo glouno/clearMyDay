@@ -1,11 +1,9 @@
-import { createRequire } from 'module';
+import * as ical from '../clear-my-day/node_modules/node-ical/index.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
-const ical = require('../clear-my-day/node_modules/node-ical');
 
 // Read the fresh ICS file
 const icsData = readFileSync(join(__dirname, 'fresh_fetch.ics'), 'utf8');

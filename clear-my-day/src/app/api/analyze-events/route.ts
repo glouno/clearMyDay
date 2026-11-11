@@ -4,12 +4,41 @@ import { NextRequest, NextResponse } from 'next/server';
 import { caldavClient } from '@/lib/caldav-client';
 import { SORBONNE_CALENDARS } from '@/lib/constants';
 import { CalendarEvent, CalendarFetchResult } from '@/lib/types';
-import { supabase, isCacheValid, CACHE_TTL_HOURS, cleanupExpiredCaches } from '@/lib/supabase';
-import { CalendarParser } from '@/lib/calendar-parser';
-import { currentAcademicYearStart, dateRangeForPolicy } from '@/lib/date-range-policy';
-import { extractCourseFromSummary } from '@/lib/course-extractor';
+import { supabase, isCacheValid, CACHE_TTL_HOURS } from '@/lib/supabase';
 
-const ANALYSIS_CACHE_VERSION = 'v6';
+// Simple course extractor helper
+function extractCourseFromSummary(summary: string): string | null {
+  if (!summary) return null;
+
+  if (/\b(OIP|INOIP)\b/i.test(summary)) return 'OIP';
+  if (/\bLVAN\b/i.test(summary) || /anglais/i.test(summary)) return 'ANGLAIS';
+
+  // Try standard patterns
+  const patterns = [
+    /^4I\d+-(?:TD|TME)\d+-([A-Z]+)/i,
+    /^MU4IN\d+-([A-Z]+)-/i,
+    /^UM4IN\d+-([A-Z]+)-/i,
+    /MU4IN\d+-([A-Z]+)-(?:TD|TME|Cours|ER)/i,
+    /UM4IN\d+-([A-Z]+)-(?:TD|TME|Cours|ER)/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = summary.match(pattern);
+    if (match) return match[1].toUpperCase();
+  }
+
+  // Fallback: splitting by hyphen
+  if (/^(?:UM|MU|4I)/i.test(summary)) {
+    const excludeTokens = new Set(['UM', 'MU', 'IN', 'TD', 'TME', 'TP', 'COURS', 'EXAM', 'EXAMEN', 'SALLE', 'AMPHI', 'GROUPE', 'GROUP', 'GR']);
+    const candidates = summary.split('-')
+      .map(t => t.trim())
+      .filter(t => t.length >= 2 && t.length <= 10 && /^[A-Z]{2,10}$/.test(t) && !excludeTokens.has(t));
+
+    if (candidates.length > 0) return candidates[0].toUpperCase();
+  }
+
+  return null;
+}
 
 interface EventAnalysis {
   summary: string;
@@ -25,8 +54,6 @@ interface CourseAnalysis {
     totalEvents: number;
     types: { [type: string]: number };
     groups: { td: string[]; tme: string[] };
-    hasUnnumberedTd?: boolean;  // Track if course has TD events without a group number
-    hasUnnumberedTme?: boolean; // Track if course has TME events without a group number
   };
 }
 
@@ -64,21 +91,11 @@ function analyzeEventSummary(summary: string): EventAnalysis {
   } else if (lowerSummary.includes('td')) {
     type = 'td';
     const tdMatch = summary.match(/td\s*(\d+)/i);
-    if (tdMatch) {
-      group = tdMatch[1];
-    } else {
-      // Mark as unnumbered TD (e.g., "UM4IN815-IDLE-TD" without a number)
-      group = 'unnumbered';
-    }
+    if (tdMatch) group = tdMatch[1];
   } else if (lowerSummary.includes('tme')) {
     type = 'tme';
     const tmeMatch = summary.match(/tme\s*(\d+)/i);
-    if (tmeMatch) {
-      group = tmeMatch[1];
-    } else {
-      // Mark as unnumbered TME (e.g., "UM4IN815-IDLE-TME" without a number)
-      group = 'unnumbered';
-    }
+    if (tmeMatch) group = tmeMatch[1];
   }
 
   // Check for OIP-specific group patterns (Gr2, Gr3, etc.)
@@ -108,10 +125,6 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const sources = searchParams.get('sources')?.split(',') || ['DAC'];
     const courseFilter = searchParams.get('course'); // Optional course filter
-    const academicYearStart = currentAcademicYearStart();
-    const academicYearRange = dateRangeForPolicy('academic-year', academicYearStart);
-    const cacheKeyFor = (source: string) =>
-      `analyze-events-${ANALYSIS_CACHE_VERSION}-${academicYearStart}-${source}`;
 
     const validSources = sources.filter(source =>
       Object.keys(SORBONNE_CALENDARS).includes(source)
@@ -132,7 +145,7 @@ export async function GET(request: NextRequest) {
     if (supabase) {
       for (const source of validSources) {
         try {
-          const cacheKey = cacheKeyFor(source);
+          const cacheKey = `analyze-events-${source}`; // Individual cache key
           const { data: cachedData, error } = await supabase
             .from('analyze_events_cache')
             .select('*')
@@ -175,20 +188,13 @@ export async function GET(request: NextRequest) {
         for (const source of sourcesToFetch) {
           const result = fetchResults[source];
           if (result && result.success) {
-            const currentEvents = new CalendarParser().filterEvents(result.events, {
-              masters: [source],
-              courses: [],
-              groups: { td: '', tme: '' },
-              courseGroups: {},
-              dateRange: academicYearRange
-            });
-            const sourceAnalysis = await analyzeSourceEvents(source, currentEvents, courseFilter);
+            const sourceAnalysis = await analyzeSourceEvents(source, result.events, courseFilter);
             fetchedResults[source] = sourceAnalysis;
 
             // Cache this individual source result
             if (supabase) {
               try {
-                const cacheKey = cacheKeyFor(source);
+                const cacheKey = `analyze-events-${source}`;
                 const expiresAt = new Date();
                 expiresAt.setHours(expiresAt.getHours() + CACHE_TTL_HOURS);
 
@@ -227,8 +233,6 @@ export async function GET(request: NextRequest) {
           };
         }
       }
-
-      await cleanupExpiredCaches();
     }
 
     // Combine cached and fetched results
@@ -332,9 +336,6 @@ export async function GET(request: NextRequest) {
 // Helper function to analyze events from a single source
 async function analyzeSourceEvents(source: string, events: CalendarEvent[], courseFilter?: string | null) {
   const courseAnalysis: CourseAnalysis = {};
-  const configuredCourses = new Set(
-    (SORBONNE_CALENDARS[source]?.courses ?? []).map(course => course.toUpperCase())
-  );
   const patternCounts = new Map<string, number>();
   const eventAnalyses: EventAnalysis[] = [];
 
@@ -353,16 +354,12 @@ async function analyzeSourceEvents(source: string, events: CalendarEvent[], cour
     patternCounts.set(patternKey, (patternCounts.get(patternKey) || 0) + 1);
 
     // Build course analysis
-    // Group detection serves the curated selector. Keep unknown feed tokens in
-    // topPatterns for audits, but do not expose room/group labels as modules.
-    if (analysis.course && configuredCourses.has(analysis.course)) {
+    if (analysis.course) {
       if (!courseAnalysis[analysis.course]) {
         courseAnalysis[analysis.course] = {
           totalEvents: 0,
           types: {},
-          groups: { td: [], tme: [] },
-          hasUnnumberedTd: false,
-          hasUnnumberedTme: false
+          groups: { td: [], tme: [] }
         };
       }
 
@@ -371,40 +368,19 @@ async function analyzeSourceEvents(source: string, events: CalendarEvent[], cour
       courseData.types[analysis.type] = (courseData.types[analysis.type] || 0) + 1;
 
       // Collect unique groups
-      if (analysis.type === 'td' && analysis.group) {
-        if (analysis.group === 'unnumbered') {
-          courseData.hasUnnumberedTd = true;
-        } else if (!courseData.groups.td.includes(analysis.group)) {
-          courseData.groups.td.push(analysis.group);
-        }
+      if (analysis.type === 'td' && analysis.group && !courseData.groups.td.includes(analysis.group)) {
+        courseData.groups.td.push(analysis.group);
       }
-      if (analysis.type === 'tme' && analysis.group) {
-        if (analysis.group === 'unnumbered') {
-          courseData.hasUnnumberedTme = true;
-        } else if (!courseData.groups.tme.includes(analysis.group)) {
-          courseData.groups.tme.push(analysis.group);
-        }
+      if (analysis.type === 'tme' && analysis.group && !courseData.groups.tme.includes(analysis.group)) {
+        courseData.groups.tme.push(analysis.group);
       }
     }
   }
 
-  // Sort groups numerically and infer group "1" for unnumbered events when numbered groups exist
+  // Sort groups numerically
   Object.values(courseAnalysis).forEach(course => {
-    // If there are unnumbered TD events AND numbered TD groups exist, add "1" to represent the unnumbered events
-    if (course.hasUnnumberedTd && course.groups.td.length > 0 && !course.groups.td.includes('1')) {
-      course.groups.td.push('1');
-    }
-    // Same logic for TME
-    if (course.hasUnnumberedTme && course.groups.tme.length > 0 && !course.groups.tme.includes('1')) {
-      course.groups.tme.push('1');
-    }
-
     course.groups.td.sort((a, b) => parseInt(a) - parseInt(b));
     course.groups.tme.sort((a, b) => parseInt(a) - parseInt(b));
-
-    // Clean up temporary tracking fields from the output
-    delete course.hasUnnumberedTd;
-    delete course.hasUnnumberedTme;
   });
 
   // Convert pattern counts to array and sort

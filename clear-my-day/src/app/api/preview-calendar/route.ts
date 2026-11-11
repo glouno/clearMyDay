@@ -3,18 +3,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { caldavClient } from '@/lib/caldav-client';
 import { ICSGenerator } from '@/lib/ics-generator';
 import { CalendarParser } from '@/lib/calendar-parser';
-import { resolveDateRange } from '@/lib/date-range-policy';
-import { validateCalendarRequest } from '@/lib/request-validation';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { name, filter } = body;
 
-    const validationError = validateCalendarRequest(body);
-    if (validationError) {
+    // Validate input
+    if (!name || !filter) {
       return NextResponse.json(
-        { success: false, error: validationError },
+        { success: false, error: 'Name and filter are required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate filter structure
+    if (!filter.masters || !Array.isArray(filter.masters) || filter.masters.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'At least one master program must be selected' },
         { status: 400 }
       );
     }
@@ -46,24 +52,16 @@ export async function POST(request: NextRequest) {
     const calendarParser = new CalendarParser();
     const icsGenerator = new ICSGenerator();
     
-    const effectiveRange = resolveDateRange(
-      filter.dateRangePolicy,
-      filter.dateRange,
-      filter.academicYearStart
-    );
-
-    // Filter events based on the same perennial window used by subscriptions.
+    // Filter events based on the configuration
     const filteredEvents = calendarParser.filterEvents(allEvents, {
       masters: filter.masters,
       courses: filter.courses || [],
       courseGroups: filter.courseGroups || {},
       groups: filter.groups || {},
       dateRange: {
-        start: effectiveRange.start,
-        end: effectiveRange.end
-      },
-      dateRangePolicy: effectiveRange.policy,
-      academicYearStart: effectiveRange.academicYearStart
+        start: new Date(filter.dateRange.start),
+        end: new Date(filter.dateRange.end)
+      }
     });
 
     console.log(`📊 Preview: ${allEvents.length} total → ${filteredEvents.length} filtered events`);
@@ -76,11 +74,9 @@ export async function POST(request: NextRequest) {
       filter: {
         ...filter,
         dateRange: {
-          start: effectiveRange.start,
-          end: effectiveRange.end
-        },
-        dateRangePolicy: effectiveRange.policy,
-        academicYearStart: effectiveRange.academicYearStart
+          start: new Date(filter.dateRange.start),
+          end: new Date(filter.dateRange.end)
+        }
       },
       createdAt: new Date(),
       lastUpdated: new Date()
@@ -93,7 +89,7 @@ export async function POST(request: NextRequest) {
         totalEvents: allEvents.length,
         filteredEvents: filteredEvents.length,
         events: filteredEvents.slice(0, 50), // Return first 50 events for preview
-        icsContent,
+        icsContent: icsContent.substring(0, 2000), // Return first 2000 chars of ICS for preview
         sources: Object.entries(results).map(([source, result]) => ({
           source,
           success: result.success,

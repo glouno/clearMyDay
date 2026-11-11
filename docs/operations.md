@@ -7,7 +7,7 @@ This guide summarises how to deploy, operate, and maintain ClearMyDay. Product o
 ## Environments & Secrets
 
 - **Vercel** hosts the Next.js frontend plus API routes.
-- **Supabase** stores calendar subscriptions, CalDAV caches, and analyze-events cache entries.
+- **Supabase** stores calendar subscriptions, CalDAV caches, and analyse-events cache entries.
 
 Set these environment variables locally (`.env`) and in Vercel:
 
@@ -16,7 +16,8 @@ CALDAV_USERNAME=student.master
 CALDAV_PASSWORD=guest
 
 SUPABASE_URL=...
-SUPABASE_SERVICE_ROLE_KEY=... # server-only
+SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...   # optional, required for admin scripts
 
 RATE_LIMIT_REDIS_URL=...        # optional, falls back to in-memory limiter
 NEXT_PUBLIC_APP_URL=https://www.clearmyday.com
@@ -26,48 +27,39 @@ NEXT_PUBLIC_APP_URL=https://www.clearmyday.com
 
 ## Supabase Schema Checklist
 
-For a linked project, apply the versioned files in `supabase/migrations` with `supabase db push`. The standalone schema files document the initial tables for a new installation.
+Run both SQL scripts in the Supabase SQL editor before first deploy:
 
 1. `supabase-calendar-tokens-schema.sql`
    - Creates `calendar_tokens` and `analyze_events_cache`.
-   - Adds indexes to support lookup and cleanup queries.
+   - Adds indexes + policy that purges tokens older than 30 days.
 2. `supabase-caldav-cache-schema.sql`
    - Creates `caldav_cache` with GIN index on `masters`.
    - Installs `cleanup_expired_caldav_cache()` helper function.
-3. `supabase-ics-output-cache-schema.sql`
-   - Creates `ics_output_cache`, keyed by subscription token.
-Expired cache rows are removed automatically after a cache-miss write through the private `cleanup_expired_cache_rows()` RPC. The same maintenance pass deletes subscription tokens and generated ICS entries after 180 days without access. This avoids requiring `pg_cron` or exposing a maintenance route.
 
 ### Table Responsibilities
 
 - `calendar_tokens`: Stores subscription metadata. A unique token is generated for each unique combination of a user's filter configuration and personalized calendar name.
-- `analyze_events_cache`: 24-hour cache for current-academic-year group detection, keyed by cache version, academic year, and individual master.
+- `analyze_events_cache`: 90-day cache for `/api/analyze-events` group detection results, keyed by individual master.
 - `caldav_cache`: 6-hour cache of parsed VEVENT arrays keyed by sorted master list (e.g., `caldav-DAC-IMA`).
-- `ics_output_cache`: 1-hour cache of final filtered ICS output per token.
 
-`dateRangePolicy` and `academicYearStart` are stored inside the existing `calendar_tokens.filter` JSONB value. Adding or changing them does not require a database migration. Each subscription is pinned to that academic year; legacy rows without the fields infer the year from token creation time and their original range.
-
-Production subscription generation requires a confirmed Supabase write. Missing credentials or a failed write returns HTTP 503 with `success: false`, `persistence: "failed"`, and `retryable: true`, without a subscription URL. The selector retains selections for retry. A failed refresh of an existing token does not acknowledge new settings; the previous persistent configuration remains available if the backend can serve it.
-
-Development retains the process-local `Map` fallback. Its response reports `persistence: "memory-only"` with a temporary-URL warning, also shown in the URL dialog. These URLs do not survive process restart or work reliably across instances. Confirmed writes report `persistence: "durable"`; normalized token identity and policy/year pinning are unchanged. Preview creates no subscription records.
+If Supabase is unreachable, the app falls back to an in-memory `Map`. Subscriptions created during downtime will be lost.
 
 ---
 
 ## Request Flow & Caching
 
 1. Calendar client requests `GET /api/calendar/[token]`.
-2. Subscription config loads from `calendar_tokens` (temporary in-memory fallback in development).
-3. CalDAV events load from Supabase cache; on miss, `caldav-client` downloads the full source with GET to preserve EXDATE data, then filters locally.
+2. Subscription config loads from `calendar_tokens` (in-memory fallback if Supabase down).
+3. CalDAV events load from Supabase cache; on miss, `caldav-client` issues a CalDAV REPORT limited to the current + next academic year.
 4. `calendar-parser` filters events, applies `RECURRENCE-ID` overrides, and removes `EXDATE` occurrences.
 5. `ics-generator` returns RFC 5545-compliant ICS (Europe/Paris timezone, deterministic UIDs) plus caching headers.
 
 ### Cache Policy Snapshot
 
-- **HTTP headers:** 15-minute client freshness, 30-minute CDN freshness, and one-hour stale-while-revalidate.
-- **ETag:** SHA-256-derived semantic ICS hash; timestamp-only regeneration does not invalidate it.
-- **Supabase CalDAV cache TTL:** 6 hours per master combination.
-- **Supabase ICS output cache TTL:** 1 hour per token.
-- **Client behaviour:** calendar applications control their own subscription refresh cadence in addition to these server caches.
+- **HTTP headers:** `Cache-Control: public, max-age=21600, s-maxage=43200, stale-while-revalidate=172800`.
+- **ETag:** `"<token>-<createdAt>"`; repeat hits usually get `304 Not Modified`.
+- **Supabase cache TTL:** 6 hours per master combination.
+- **Client behaviour:** Apple refreshes every 15–60 min, Google up to 24 h. Worst-case propagation delay = max(client refresh, 6 h server cache).
 - **Security:** No manual cache invalidation endpoint is exposed, preventing trivial CPU amplification attacks.
 
 ---
@@ -75,7 +67,7 @@ Development retains the process-local `Map` fallback. Its response reports `pers
 ## Deployment Workflow
 
 1. Confirm Supabase schema scripts have been applied.
-2. Push to production branch (`master`). Vercel runs `npm run build` from the `clear-my-day` root directory.
+2. Push to production branch (`main`). Vercel runs `npm run build`.
 3. Verify deployment health: `curl https://www.clearmyday.com/api/health`.
 4. Subscribe a test calendar; check logs for `✅ CalDAV cache HIT` and recurrence-related messages.
 
@@ -96,7 +88,7 @@ npm run test
   - Watch for spikes in `❌ CalDAV cache MISS` (expect one miss per master combo every 6 h).
 - **Supabase dashboard:**
   - Observe table sizes; `caldav_cache` should remain small (hundreds of KB).
-  - Expired rows are cleaned on cache writes; investigate service-role/RPC errors if they continue to accumulate.
+  - Run `SELECT cleanup_expired_caldav_cache();` if expired rows linger.
 - **Synthetic checks:**
   - Optional: schedule `curl` against `/api/health` and a sample calendar URL to ensure 200/304 responses.
 
@@ -106,11 +98,10 @@ When miss frequency jumps, verify Sorbonne credentials and review `Attempt X fai
 
 ## Routine Maintenance
 
-- **Dependency security:** See the [dependency security review](dependency-security.md) for patched versions, the remaining unpatched development-tooling finding, and the update verification workflow.
-- **Token hygiene:** Tokens are bearer credentials. Never log or publish them. The production retention policy removes them after 180 days without access.
+- **Token Hygiene**: A Supabase policy automatically removes tokens that have not been accessed in 30 days. Manual cleanup can be triggered via helpers in `persistent-storage.ts`.
 - **Personalized Names**: The system supports personalized calendar names by including the name in the hash used for token generation. This ensures that users see their chosen name in their calendar client while preserving the efficiency of the CalDAV cache, which is keyed only by the selected masters.
 - **Course catalogue updates:** Modify `src/lib/sorbonne-masters.ts` when masters/courses change; update associated tests/UI labels.
-- **Network-access reports:** The previous Sorbonne Wi-Fi block is resolved as of 15 October 2026, following Paul's confirmation. Use [domain notes](domain-notes.md#sorbonne-wi-fi-access) to investigate a new incident before escalating to IT.
+- **Firewall coordination:** Use `docs/domain-notes.md` (firewall observations + French contact template) when working with Sorbonne IT.
 - **Rate limit tuning:** Default limiter ≈60 requests/hour/IP; adjust if usage grows.
 
 ---
@@ -118,14 +109,14 @@ When miss frequency jumps, verify Sorbonne credentials and review `Attempt X fai
 ## Runbook
 
 - **Users report stale data**
-  - Check both `caldav_cache.expires_at` and `ics_output_cache.expires_at`. A changed `LOGIC_VERSION`, date policy, or pinned academic year invalidates incompatible ICS cache rows without requiring deletion.
+  - Check `caldav_cache.expires_at`. Delete the row in Supabase if you need an immediate refresh; otherwise wait for expiry.
 - **CalDAV fetch failures**
   - Validate credentials, inspect REPORT payload, and monitor retry logs. Sorbonne servers occasionally throttle.
 - **Supabase outage**
-  - Production generation returns a retryable persistence error; restore backend availability and retry with the retained selections. Existing subscriptions keep their tokens, and may resolve their previous configuration. Only development offers explicitly temporary in-memory URLs.
+  - Service falls back to in-memory store. Warn users that subscriptions created during downtime may need regeneration.
 - **Unexpected CPU increase**
   - Ensure cache headers/TTL match the values above. Revert to a previous commit if a regression shortened caching intervals.
 
 ---
 
-For Sorbonne network-access status, incident reporting, and master lists, see [domain notes](domain-notes.md). Major historical changes are summarised in [the changelog](changelog.md).
+For domain-specific knowledge (firewall, contact emails, master lists) see `docs/domain-notes.md`. Major historical changes are summarised in `docs/changelog.md`.

@@ -52,7 +52,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768); // Tailwind's md breakpoint
     };
-
+    
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
@@ -116,12 +116,14 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
 
     setLoading(true);
     setError(null);
-
+    
     try {
       console.log('🚀 Fetching calendar events using simplified flow...');
-
-      // Preview without creating or updating a persistent subscription token.
-      const response = await fetch('/api/preview-calendar', {
+      
+      // Step 1: Generate calendar using the working API
+      // Note: Using a static preview name to avoid database pollution
+      // All preview calendars share the same token (efficient for CalDAV caching)
+      const response = await fetch('/api/generate-calendar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -132,8 +134,8 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
             groups: { td: '', tme: '' }, // Required by FilterConfig
             courseGroups: courseGroups,
             dateRange: {
-              start: dateRange?.start || new Date('2024-09-01'),
-              end: dateRange?.end || new Date(new Date().getFullYear() + 1, 11, 31) // Next year end
+              start: dateRange?.start || new Date('2024-01-01'),
+              end: dateRange?.end || new Date('2025-12-31')
             }
           }
         })
@@ -144,17 +146,23 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
       }
 
       const data = await response.json();
-
+      
       if (!data.success) {
         throw new Error(data.error || 'Failed to generate calendar');
       }
 
-      const icsContent = data.data.icsContent;
-      if (typeof icsContent !== 'string') {
-        throw new Error('Preview response did not include calendar data');
-      }
-      console.log('✅ ICS content fetched, length:', icsContent.length);
+      console.log('✅ Calendar generated successfully:', data.data.token);
 
+      // Step 2: Fetch the ICS content
+      const icsResponse = await fetch(data.data.subscriptionUrl);
+      
+      if (!icsResponse.ok) {
+        throw new Error(`ICS Fetch Error: ${icsResponse.status}`);
+      }
+
+      const icsContent = await icsResponse.text();
+      console.log('✅ ICS content fetched, length:', icsContent.length);
+      
       // Debug: Show first few lines of ICS to understand format
       const icsLines = icsContent.split('\n').slice(0, 30);
       console.log('📋 First 30 lines of ICS:', icsLines);
@@ -167,7 +175,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
-
+        
         if (line === 'BEGIN:VEVENT') {
           inEvent = true;
           currentEvent = {};
@@ -176,7 +184,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
           if (currentEvent.SUMMARY) {
             const startDate = currentEvent.DTSTART ? parseICSDate(currentEvent.DTSTART) : new Date();
             const endDate = currentEvent.DTEND ? parseICSDate(currentEvent.DTEND) : new Date(startDate.getTime() + 2 * 60 * 60 * 1000);
-
+            
             // Debug: Log event timing and raw data
             console.log(`📅 Event: ${currentEvent.SUMMARY}`, {
               rawStart: currentEvent.DTSTART,
@@ -186,7 +194,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
               dayOfWeek: startDate.toLocaleDateString('en-US', { weekday: 'long' }),
               time: startDate.toLocaleTimeString()
             });
-
+            
             recurringEvents.push({
               id: currentEvent.UID || `event-${recurringEvents.length}`,
               title: currentEvent.SUMMARY,
@@ -202,62 +210,63 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
           const colonIndex = line.indexOf(':');
           const key = line.substring(0, colonIndex);
           const value = line.substring(colonIndex + 1);
-
+          
           // Handle property parameters (like DTSTART;TZID=Europe/Paris:20241120T140000)
           const cleanKey = key.split(';')[0]; // Remove parameters like ;TZID=Europe/Paris
           currentEvent[cleanKey] = value;
         }
       }
 
-      console.log('Recurring Events:', recurringEvents);
+        console.log('Recurring Events:', recurringEvents);
 
-      // Expand recurring events within the same current window selected by the user.
-      const academicYearStart = dateRange?.start || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      const academicYearEnd = dateRange?.end || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+        // Expand recurring events using a wider range to capture all academic events
+        // Include past events so users can see the full academic calendar
+        const academicYearStart = new Date(2023, 8, 1); // September 1, 2023 (include past academic year)
+        const academicYearEnd = new Date(2026, 6, 31); // July 31, 2026
+        
+        const expandedEvents = expandRecurringEvents(recurringEvents, {
+          start: academicYearStart,
+          end: academicYearEnd
+        });
 
-      const expandedEvents = expandRecurringEvents(recurringEvents, {
-        start: academicYearStart,
-        end: academicYearEnd
-      });
+        console.log('Expanded Events:', expandedEvents);
 
-      console.log('Expanded Events:', expandedEvents);
-
-      // Convert to calendar events
-      const calendarEvents: CalendarEvent[] = expandedEvents.map((event, index) => {
-        // Add detailed logging for problematic events
-        if (event.start.getFullYear() >= 2025) {
-          console.log(`🔍 2025+ Event ${index}:`, {
-            title: event.title,
-            originalStart: event.start.toISOString(),
-            localStart: event.start.toLocaleString(),
-            day: event.start.getDay(), // 0=Sunday, 1=Monday, etc.
-            isRecurring: event.isRecurring
-          });
-        }
-
-        return {
-          id: event.id,
-          title: event.title + (event.isRecurring ? ' (R)' : ''), // Mark recurring events
-          start: event.start,
-          end: event.end,
-          resource: {
-            type: getEventType(event.title),
-            group: getEventGroup(event.title)
+        // Convert to calendar events
+        const calendarEvents: CalendarEvent[] = expandedEvents.map((event, index) => {
+          // Add detailed logging for problematic events
+          if (event.start.getFullYear() >= 2025) {
+            console.log(`🔍 2025+ Event ${index}:`, {
+              title: event.title,
+              originalStart: event.start.toISOString(),
+              localStart: event.start.toLocaleString(),
+              day: event.start.getDay(), // 0=Sunday, 1=Monday, etc.
+              isRecurring: event.isRecurring
+            });
           }
-        };
-      });
+          
+          return {
+            id: event.id,
+            title: event.title + (event.isRecurring ? ' (R)' : ''), // Mark recurring events
+            start: event.start,
+            end: event.end,
+            resource: {
+              type: getEventType(event.title),
+              group: getEventGroup(event.title)
+            }
+          };
+        });
 
-      console.log('Final Calendar Events:', calendarEvents.length);
-      setEvents(calendarEvents);
-
-      const now = new Date();
-      if (dateRange?.start && dateRange?.end && now >= dateRange.start && now <= dateRange.end) {
-        goToToday();
-      } else if (dateRange?.start) {
-        goToRangeStart();
-      } else {
-        goToToday();
-      }
+        console.log('Final Calendar Events:', calendarEvents.length);
+        setEvents(calendarEvents);
+        
+        const now = new Date();
+        if (dateRange?.start && dateRange?.end && now >= dateRange.start && now <= dateRange.end) {
+          goToToday();
+        } else if (dateRange?.start) {
+          goToRangeStart();
+        } else {
+          goToToday();
+        }
 
     } catch (error) {
       console.error('❌ Failed to fetch calendar events:', error);
@@ -279,13 +288,13 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
   const parseICSDate = (dateStr: string): Date => {
     // Clean the date string
     const cleanDate = dateStr.trim();
-
+    
     // Handle different ICS date formats
     if (cleanDate.includes('T')) {
       // DateTime format: 20241120T140000Z or 20241120T140000
       const isUTC = cleanDate.endsWith('Z');
       const dateTimePart = cleanDate.replace('Z', '');
-
+      
       if (dateTimePart.length >= 15) { // YYYYMMDDTHHMMSS
         const year = parseInt(dateTimePart.substring(0, 4));
         const month = parseInt(dateTimePart.substring(4, 6)) - 1; // Month is 0-indexed
@@ -293,7 +302,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
         const hour = parseInt(dateTimePart.substring(9, 11));
         const minute = parseInt(dateTimePart.substring(11, 13));
         const second = parseInt(dateTimePart.substring(13, 15)) || 0;
-
+        
         if (isUTC) {
           return new Date(Date.UTC(year, month, day, hour, minute, second));
         } else {
@@ -308,7 +317,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
       const day = parseInt(cleanDate.substring(6, 8));
       return new Date(year, month, day);
     }
-
+    
     // Fallback to standard Date parsing
     console.warn('Unexpected date format:', cleanDate);
     return new Date(cleanDate);
@@ -392,7 +401,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
       {/* Header Section - Responsive */}
       <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:justify-between sm:items-center">
         <h3 className="text-base sm:text-lg font-semibold text-gray-900">Calendar Preview</h3>
-
+        
         {/* Mobile: Stack buttons vertically */}
         <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
           <div className="flex gap-2">
@@ -424,44 +433,48 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
               →
             </button>
           </div>
-
+          
           {/* View Switcher */}
           <div className="flex gap-1">
             <button
               onClick={() => setCurrentView('day')}
-              className={`flex-1 sm:flex-none px-3 py-2 text-sm rounded-md ${currentView === 'day'
+              className={`flex-1 sm:flex-none px-3 py-2 text-sm rounded-md ${
+                currentView === 'day'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+              }`}
             >
               Day
             </button>
             <button
               onClick={() => setCurrentView('work_week')}
-              className={`flex-1 sm:flex-none px-3 py-2 text-sm rounded-md ${currentView === 'work_week'
+              className={`flex-1 sm:flex-none px-3 py-2 text-sm rounded-md ${
+                currentView === 'work_week'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+              }`}
             >
               Week
             </button>
             {!isMobile && (
               <button
                 onClick={() => setCurrentView('month')}
-                className={`px-3 py-2 text-sm rounded-md ${currentView === 'month'
+                className={`px-3 py-2 text-sm rounded-md ${
+                  currentView === 'month'
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                }`}
               >
                 Month
               </button>
             )}
             <button
               onClick={() => setCurrentView('agenda')}
-              className={`flex-1 sm:flex-none px-3 py-2 text-sm rounded-md ${currentView === 'agenda'
+              className={`flex-1 sm:flex-none px-3 py-2 text-sm rounded-md ${
+                currentView === 'agenda'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+              }`}
             >
               List
             </button>
@@ -588,7 +601,7 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
               const titleParts = event.title.split('-');
               const courseName = titleParts.length > 1 ? titleParts[1].trim() : titleParts[0].trim();
               const displayText = isMobile && currentView === 'work_week' ? courseName : event.title;
-
+              
               return (
                 <div className="px-1 truncate">
                   <div className="font-medium text-xs">

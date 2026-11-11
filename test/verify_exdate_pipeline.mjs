@@ -59,15 +59,13 @@ console.log('\nStep 3: Simulating caldav-client EXDATE parsing...');
 
 let exdates = undefined;
 if (sampleEvent.exdate) {
-  // node-ical exposes an Array with date-string properties and length 0.
-  // Object.values handles both that structure and ordinary keyed objects.
-  if (typeof sampleEvent.exdate === 'object' && Object.keys(sampleEvent.exdate).length > 0) {
+  if (Array.isArray(sampleEvent.exdate)) {
+    exdates = sampleEvent.exdate.map(d => new Date(d));
+    console.log(`✓ Parsed ${exdates.length} EXDATE entries from array`);
+  } else if (typeof sampleEvent.exdate === 'object') {
     const exdateValues = Object.values(sampleEvent.exdate);
     exdates = exdateValues.map(d => new Date(d));
     console.log(`✓ Parsed ${exdates.length} EXDATE entries from object`);
-  } else if (Array.isArray(sampleEvent.exdate)) {
-    exdates = sampleEvent.exdate.map(d => new Date(d));
-    console.log(`✓ Parsed ${exdates.length} EXDATE entries from array`);
   } else {
     exdates = [new Date(sampleEvent.exdate)];
     console.log(`✓ Parsed 1 EXDATE entry from single value`);

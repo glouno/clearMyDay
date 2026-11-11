@@ -3,7 +3,40 @@
 import { CalendarEvent, FilterConfig, GroupDetectionResult } from './types';
 import { GROUP_PATTERNS, COURSE_PATTERNS, APP_CONFIG } from './constants';
 import { rrulestr } from 'rrule';
-import { extractCourseFromSummary } from './course-extractor';
+
+// Simple course extractor helper
+function extractCourseFromSummary(summary: string): string | null {
+  if (!summary) return null;
+
+  if (/\b(OIP|INOIP)\b/i.test(summary)) return 'OIP';
+  if (/\bLVAN\b/i.test(summary) || /anglais/i.test(summary)) return 'ANGLAIS';
+
+  // Try standard patterns
+  const patterns = [
+    /^4I\d+-(?:TD|TME)\d+-([A-Z]+)/i,
+    /^MU4IN\d+-([A-Z]+)-/i,
+    /^UM4IN\d+-([A-Z]+)-/i,
+    /MU4IN\d+-([A-Z]+)-(?:TD|TME|Cours|ER)/i,
+    /UM4IN\d+-([A-Z]+)-(?:TD|TME|Cours|ER)/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = summary.match(pattern);
+    if (match) return match[1].toUpperCase();
+  }
+
+  // Fallback: splitting by hyphen
+  if (/^(?:UM|MU|4I)/i.test(summary)) {
+    const excludeTokens = new Set(['UM', 'MU', 'IN', 'TD', 'TME', 'TP', 'COURS', 'EXAM', 'EXAMEN', 'SALLE', 'AMPHI', 'GROUPE', 'GROUP', 'GR']);
+    const candidates = summary.split('-')
+      .map(t => t.trim())
+      .filter(t => t.length >= 2 && t.length <= 10 && /^[A-Z]{2,10}$/.test(t) && !excludeTokens.has(t));
+
+    if (candidates.length > 0) return candidates[0].toUpperCase();
+  }
+
+  return null;
+}
 
 export class CalendarParser {
   /**
@@ -237,14 +270,8 @@ export class CalendarParser {
     const description = (event.description || '').toLowerCase();
     const eventText = `${summary} ${description}`;
 
-    // OIP plenary courses are common to the selected Master. Group-specific
-    // OIP TD/TME/Gr events remain regular filtered events.
-    const isCommonOipEvent = extractCourseFromSummary(event.summary) === 'OIP'
-      && /\b(cours|amphi|information)\b/i.test(eventText)
-      && !/\b(td|tme)\s*\d*\b|\bgr(?:oupe)?\s*\d+/i.test(eventText);
-
-    // Patterns for general events that apply to all students. Only common OIP
-    // sessions bypass course filtering; its group sessions do not.
+    // Patterns for general events that apply to all students
+    // NOTE: OIP is NOT included here - it's a regular course with master-specific variants and groups
     const generalEventPatterns = [
       /\bsoi\b/i,                           // SOI events
       /service.*orientation/i,               // Service Orientation et Insertion
@@ -261,7 +288,7 @@ export class CalendarParser {
       /information.*collective/i             // Collective information sessions
     ];
 
-    return isCommonOipEvent || generalEventPatterns.some(pattern => pattern.test(eventText));
+    return generalEventPatterns.some(pattern => pattern.test(eventText));
   }
 
   /**
@@ -285,7 +312,8 @@ export class CalendarParser {
     // Include events with course codes or academic keywords
     const academicPatterns = [
       /4I\d+/i,           // Old format: 4I801, 4I802, etc.
-      /(?:MU|UM)\d+(?:IN|PY)[A-Z0-9]+/i, // Includes IQ formats such as UM5INQ01/UM5PYQ03.
+      /MU4IN\d+/i,        // New format: MU4IN801, etc.
+      /UM4IN\d+/i,        // Alternative format
       /td\d+/i,           // TD sessions
       /tme\d+/i,          // TME sessions
       /cours/i,           // Courses
@@ -349,8 +377,7 @@ export class CalendarParser {
    * Check if event should be included based on course group filtering
    */
   private matchesGroups(event: CalendarEvent, filter: FilterConfig): boolean {
-    // Only look at summary for group detection to avoid false positives from description
-    const eventText = event.summary;
+    const eventText = `${event.summary} ${event.description || ''}`;
 
     // Extract course from event summary
     const courseId = this.extractCourseFromEvent(event);
@@ -384,15 +411,10 @@ export class CalendarParser {
    */
   private matchesCourseGroup(eventText: string, groupNumber: string): boolean {
     // Check if this is a group-specific event (TD or TME)
-    const tdPattern = new RegExp(`(?:^4I\\d+-TD|(?:MU|UM)\\d+IN(?:\\d+|OIP)-.*-TD|\\bTD\\s*)(\\d+)(?![0-9])`, 'i');
-    const tmePattern = new RegExp(`(?:^4I\\d+-TME|(?:MU|UM)\\d+IN(?:\\d+|OIP)-.*-TME|\\bTME\\s*)(\\d+)(?![0-9])`, 'i');
+    const tdPattern = new RegExp(`(?:^4I\\d+-TD|MU4IN\\d+-.*-TD|UM4IN\\d+-.*-TD|UM5INOIP-TD|\\bTD\\s*)(\\d+)(?![0-9])`, 'i');
+    const tmePattern = new RegExp(`(?:^4I\\d+-TME|MU4IN\\d+-.*-TME|UM4IN\\d+-.*-TME|UM5INOIP-TME|\\bTME\\s*)(\\d+)(?![0-9])`, 'i');
     // OIP-specific group pattern: "OIP-AI2D-Gr2" -> group "2"
     const oipGroupPattern = /(?:OIP.*-Gr|Groupe\s*)(\d+)/i;
-
-    // Patterns to detect un-numbered TD/TME events (e.g., "UM4IN815-IDLE-TD" without a number)
-    // These should match group 1 when the user selects group 1
-    const unnumberedTdPattern = /(?:^4I\d+-TD|(?:MU|UM)\d+IN(?:\d+|OIP)-.*-TD|\bTD)(?![0-9])/i;
-    const unnumberedTmePattern = /(?:^4I\d+-TME|(?:MU|UM)\d+IN(?:\d+|OIP)-.*-TME|\bTME)(?![0-9])/i;
 
     const tdMatch = eventText.match(tdPattern);
     const tmeMatch = eventText.match(tmePattern);
@@ -413,27 +435,6 @@ export class CalendarParser {
       return oipMatch[1] === groupNumber;
     }
 
-    // Check for un-numbered TD/TME events - treat as group 1
-    if (groupNumber === '1') {
-      // Check if this is an un-numbered TD event (no number following TD)
-      if (unnumberedTdPattern.test(eventText) && !tdMatch) {
-        return true;
-      }
-      // Check if this is an un-numbered TME event (no number following TME)
-      if (unnumberedTmePattern.test(eventText) && !tmeMatch) {
-        return true;
-      }
-    } else {
-      // If user selected a numbered group (2, 3, etc.), exclude un-numbered TD/TME events
-      // because they belong to the implicit group 1
-      if (unnumberedTdPattern.test(eventText) && !tdMatch) {
-        return false;
-      }
-      if (unnumberedTmePattern.test(eventText) && !tmeMatch) {
-        return false;
-      }
-    }
-
     // If it's not a group-specific event (cours, exam, soutenance, etc.), include it
     return true;
   }
@@ -449,34 +450,22 @@ export class CalendarParser {
 
     // Check if this event belongs to a different TD group
     if (groups.td && groups.td !== '') {
-      const otherTdPattern = new RegExp(`(?:^4I\\d+-TD|(?:MU|UM)\\d+IN(?:\\d+|OIP)-.*-TD|\\bTD\\s*)(\\d+)(?![0-9])`, 'i');
+      const otherTdPattern = new RegExp(`(?:^4I\\d+-TD|MU4IN\\d+-.*-TD|UM4IN\\d+-.*-TD|\\bTD\\s*)(\\d+)(?![0-9])`, 'i');
       const tdMatch = eventText.match(otherTdPattern);
 
       if (tdMatch && tdMatch[1] !== groups.td) {
         // This event belongs to a different TD group, exclude it
         return false;
       }
-
-      // Handle un-numbered TD events: they belong to implicit group 1
-      const unnumberedTdPattern = /(?:^4I\d+-TD|(?:MU|UM)\d+IN(?:\d+|OIP)-.*-TD|\bTD)(?![0-9])/i;
-      if (!tdMatch && unnumberedTdPattern.test(eventText) && groups.td !== '1') {
-        return false;
-      }
     }
 
     // Check if this event belongs to a different TME group
     if (groups.tme && groups.tme !== '') {
-      const otherTmePattern = new RegExp(`(?:^4I\\d+-TME|(?:MU|UM)\\d+IN(?:\\d+|OIP)-.*-TME|\\bTME\\s*)(\\d+)(?![0-9])`, 'i');
+      const otherTmePattern = new RegExp(`(?:^4I\\d+-TME|MU4IN\\d+-.*-TME|UM4IN\\d+-.*-TME|\\bTME\\s*)(\\d+)(?![0-9])`, 'i');
       const tmeMatch = eventText.match(otherTmePattern);
 
       if (tmeMatch && tmeMatch[1] !== groups.tme) {
         // This event belongs to a different TME group, exclude it
-        return false;
-      }
-
-      // Handle un-numbered TME events: they belong to implicit group 1
-      const unnumberedTmePattern = /(?:^4I\d+-TME|(?:MU|UM)\d+IN(?:\d+|OIP)-.*-TME|\bTME)(?![0-9])/i;
-      if (!tmeMatch && unnumberedTmePattern.test(eventText) && groups.tme !== '1') {
         return false;
       }
     }

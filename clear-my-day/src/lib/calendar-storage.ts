@@ -5,7 +5,7 @@ import crypto from 'crypto';
 export interface CalendarConfig {
   name: string;
   filter: {
-    masters: string[];
+    masters: ('DAC' | 'IMA' | 'ANDROIDE')[];
     courses: string[];
     courseGroups?: { [courseId: string]: string }; // Single group number per course
     groups?: { td?: string; tme?: string }; // Legacy support
@@ -13,13 +13,9 @@ export interface CalendarConfig {
       start: string;
       end: string;
     };
-    dateRangePolicy?: 'academic-year' | 'semester-1' | 'semester-2' | 'rolling';
-    academicYearStart?: number;
   };
   createdAt: Date;
 }
-
-export type CalendarPersistenceOutcome = 'durable' | 'memory-only' | 'failed';
 
 export interface CalendarTokenRow {
   token: string;
@@ -33,27 +29,12 @@ export interface CalendarTokenRow {
       start: string;
       end: string;
     };
-    dateRangePolicy?: 'academic-year' | 'semester-1' | 'semester-2' | 'rolling';
-    academicYearStart?: number;
   }; // JSONB in Supabase
   config_hash?: string; // MD5 hash for efficient deduplication
   created_at: string;
   updated_at: string;
   last_accessed: string;
   access_count: number;
-}
-
-function normalizeCourseGroups(
-  courseGroups: CalendarConfig['filter']['courseGroups']
-): Record<string, string> {
-  if (!courseGroups) return {};
-
-  return Object.keys(courseGroups)
-    .sort()
-    .reduce<Record<string, string>>((accumulator, key) => {
-      accumulator[key] = courseGroups[key];
-      return accumulator;
-    }, {});
 }
 
 // Helper function to create a hash of filter + name for deduplication
@@ -63,10 +44,8 @@ function hashFilterConfig(filter: CalendarConfig['filter'], name: string): strin
     name: name.trim(), // Include name for personalized calendars
     masters: [...filter.masters].sort(),
     courses: [...filter.courses].sort(),
-    courseGroups: normalizeCourseGroups(filter.courseGroups),
-    dateRangePolicy: filter.dateRangePolicy || 'academic-year',
-    academicYearStart: filter.academicYearStart,
-    // Ignore computed dates: policy + academic year identify the stable window.
+    courseGroups: filter.courseGroups || {},
+    // Ignore dates for deduplication - different dates shouldn't create new tokens
   });
   return crypto.createHash('md5').update(normalized).digest('hex');
 }
@@ -151,9 +130,12 @@ export class CalendarStorage {
   }
 
   // Save calendar configuration to Supabase
-  static async set(token: string, config: CalendarConfig): Promise<CalendarPersistenceOutcome> {
+  static async set(token: string, config: CalendarConfig): Promise<boolean> {
     if (!supabase) {
-      return this.saveTemporary(token, config);
+      // Fallback to in-memory storage if Supabase not available
+      console.warn('Supabase not available, using in-memory storage (not persistent)');
+      calendarConfigs.set(token, config);
+      return true;
     }
 
     try {
@@ -172,27 +154,19 @@ export class CalendarStorage {
 
       if (error) {
         console.error('Failed to save calendar config to Supabase:', error);
-        return this.saveTemporary(token, config);
+        // Fallback to in-memory storage
+        calendarConfigs.set(token, config);
+        return false;
       }
 
-      // A confirmed retry supersedes any temporary development configuration.
-      calendarConfigs.delete(token);
       console.log(`✅ Calendar config saved to Supabase: ${token} (hash: ${configHash.substring(0, 8)}...)`);
-      return 'durable';
+      return true;
     } catch (error) {
       console.error('Error saving to Supabase:', error);
-      return this.saveTemporary(token, config);
+      // Fallback to in-memory storage
+      calendarConfigs.set(token, config);
+      return false;
     }
-  }
-
-  private static saveTemporary(token: string, config: CalendarConfig): CalendarPersistenceOutcome {
-    // Never install an unacknowledged production config, including updates to
-    // existing tokens. Their previous persistent configuration remains authoritative.
-    if (process.env.NODE_ENV === 'production') return 'failed';
-
-    console.warn('Using temporary in-memory calendar storage (not persistent)');
-    calendarConfigs.set(token, config);
-    return 'memory-only';
   }
 
   // Get calendar configuration from Supabase

@@ -38,7 +38,7 @@ AWS/GCP equivalents are noted per step.
     - `analyze_events_cache`
   - Sorbonne CalDAV endpoints (external HTTP).
 - **Config/secrets**
-  - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (server-only)
+  - `SUPABASE_URL`, `SUPABASE_ANON_KEY`
   - Any Sorbonne URLs and auth (currently constants but should move to env later).
 
 You dont need to change ICS/CalDAV/React logic for the migration.

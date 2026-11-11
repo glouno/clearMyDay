@@ -19,10 +19,13 @@ ON calendar_tokens(created_at);
 CREATE INDEX IF NOT EXISTS idx_calendar_tokens_last_accessed 
 ON calendar_tokens(last_accessed);
 
--- Internal server table: service-role access only.
+-- Enable Row Level Security (optional, for security)
 ALTER TABLE calendar_tokens ENABLE ROW LEVEL SECURITY;
 
-REVOKE ALL ON TABLE calendar_tokens FROM anon, authenticated;
+-- Policy to allow all operations (adjust as needed)
+CREATE POLICY "Allow all operations on calendar_tokens" 
+ON calendar_tokens FOR ALL 
+USING (true);
 
 -- Function to update last_accessed automatically
 CREATE OR REPLACE FUNCTION update_last_accessed()
@@ -44,5 +47,5 @@ CREATE TRIGGER update_calendar_token_access
   FOR EACH ROW
   EXECUTE FUNCTION update_last_accessed();
 
--- Production migrations install a 180-day inactivity retention policy. The
--- cleanup runs through the private cleanup_expired_cache_rows() RPC.
+-- Clean up old tokens (run this periodically or set up a cron job)
+-- DELETE FROM calendar_tokens WHERE last_accessed < NOW() - INTERVAL '30 days';

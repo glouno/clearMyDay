@@ -23,8 +23,12 @@ CREATE INDEX IF NOT EXISTS idx_caldav_cache_masters ON caldav_cache USING GIN(ma
 -- Enable Row Level Security (RLS)
 ALTER TABLE caldav_cache ENABLE ROW LEVEL SECURITY;
 
--- This server cache can contain complete upstream event records.
-REVOKE ALL ON TABLE caldav_cache FROM anon, authenticated;
+-- Create policy to allow all operations (this is a cache table, no sensitive data)
+-- In production, you might want to restrict INSERT/UPDATE to service role only
+CREATE POLICY "Allow all operations on caldav_cache" ON caldav_cache
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
 
 -- Optional: Create a function to clean up expired cache entries
 -- This can be called manually or scheduled with pg_cron extension
@@ -49,7 +53,7 @@ $$;
 COMMENT ON FUNCTION cleanup_expired_caldav_cache() IS 'Deletes expired entries from caldav_cache table. Returns count of deleted rows.';
 
 -- Comments for documentation
-COMMENT ON TABLE caldav_cache IS 'Caches CalDAV responses from Sorbonne servers for 6 hours to reduce API calls and CPU usage on Vercel';
+COMMENT ON TABLE caldav_cache IS 'Caches CalDAV responses from Sorbonne servers for 1 hour to reduce API calls and CPU usage on Vercel';
 COMMENT ON COLUMN caldav_cache.id IS 'Cache key in format: caldav-{master1}-{master2}';
 COMMENT ON COLUMN caldav_cache.masters IS 'Array of master programs (e.g., DAC, IMA, ANDROIDE)';
 COMMENT ON COLUMN caldav_cache.events IS 'Array of calendar events in JSON format';

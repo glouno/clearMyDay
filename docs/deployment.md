@@ -23,7 +23,7 @@ CALDAV_PASSWORD=guest
 
 # Supabase Configuration
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-server-only-service-role-key
+SUPABASE_ANON_KEY=eyJhbGc...
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...  # Optional, for admin operations
 
 # Rate Limiting (Optional)
@@ -160,7 +160,7 @@ npm run test
    vercel env add CALDAV_USERNAME
    vercel env add CALDAV_PASSWORD
    vercel env add SUPABASE_URL
-   vercel env add SUPABASE_SERVICE_ROLE_KEY
+   vercel env add SUPABASE_ANON_KEY
    vercel env add NEXT_PUBLIC_APP_URL
    ```
 
@@ -185,11 +185,11 @@ Vercel automatically creates preview deployment. Check:
 ### Deploy to Production
 
 ```bash
-# Merge the approved pull request to master
-git checkout master
+# Merge to main branch
+git checkout main
 git pull
 git merge feature/your-feature
-git push origin master
+git push origin main
 ```
 
 Vercel automatically deploys to production (typically 2-3 minutes).
@@ -242,11 +242,11 @@ curl -I https://www.clearmyday.com/api/calendar/YOUR_TOKEN
 1. **Push to feature branch**
 2. **Get preview URL from Vercel**
 3. **Test preview URL**
-4. **Merge to `master` if successful**
+4. **Merge to main if successful**
 
 ### Option C: Direct Production
 
-1. **Merge an approved pull request to `master`**
+1. **Push to main branch**
 2. **Vercel auto-deploys**
 3. **Monitor for issues**
 
@@ -280,7 +280,7 @@ curl -fsSL "https://www.clearmyday.com/api/calendar/TOKEN" | grep "RRULE"
 
 # Check cache headers
 curl -I "https://www.clearmyday.com/api/calendar/TOKEN"
-# Should include: Cache-Control: public, max-age=900, s-maxage=1800
+# Should include: Cache-Control: public, max-age=21600
 ```
 
 ---
@@ -298,7 +298,7 @@ curl -I "https://www.clearmyday.com/api/calendar/TOKEN"
 **Git Revert Method:**
 ```bash
 git revert HEAD
-git push origin your-feature-branch
+git push origin main
 ```
 
 Vercel automatically deploys the reverted code.
@@ -337,7 +337,7 @@ npm run lint
 **Symptoms:** Calendars don't save, cache doesn't work
 
 **Solutions:**
-1. Verify `SUPABASE_URL` and the server-only `SUPABASE_SERVICE_ROLE_KEY`
+1. Verify `SUPABASE_URL` and `SUPABASE_ANON_KEY`
 2. Check Supabase project is active
 3. Verify tables exist in Supabase
 4. Test connection locally first
@@ -350,7 +350,7 @@ npm run lint
 1. Verify `CALDAV_USERNAME` and `CALDAV_PASSWORD`
 2. Check Sorbonne server status
 3. Review retry logs (client retries 3x with backoff)
-4. Check connectivity from the deployed server to the configured CalDAV endpoint. The previous Sorbonne Wi-Fi restriction on browser access to ClearMyDay is resolved; see [domain notes](domain-notes.md#sorbonne-wi-fi-access) for that incident's status.
+4. Check firewall settings (see `docs/domain-notes.md`)
 
 ---
 
@@ -394,7 +394,7 @@ Set up periodic checks:
 ### Cache Strategy
 
 **Current Configuration:**
-- **HTTP edge cache:** 30 minutes, with one hour of stale-while-revalidate
+- **HTTP Cache:** 6 hours (max-age=21600)
 - **Supabase Cache:** 6 hours per master combo
 - **ETag:** Token + creation timestamp
 - **Stale-while-revalidate:** 48 hours
@@ -437,7 +437,7 @@ RATE_LIMIT_REQUESTS_PER_TOKEN: 10
 
 ### Supabase Security
 
-- Use `SUPABASE_SERVICE_ROLE_KEY` only in server-side Vercel functions; never expose it to browser code
+- Use `SUPABASE_ANON_KEY` for public operations
 - Reserve `SERVICE_ROLE_KEY` for admin scripts only
 - Enable Row Level Security (RLS) policies
 - Auto-purge old tokens (30 days)

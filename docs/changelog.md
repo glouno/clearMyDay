@@ -1,26 +1,5 @@
 # Changelog
 
-## Unreleased
-
-- Remove the obsolete Sorbonne Wi-Fi homepage warning after Paul confirmed access on 15 October 2026, avoiding its delayed layout shift.
-- Retire the old mobile-data workaround and IT unblocking template. Update the domain notes, application README, and operations/deployment guides with the resolved status and steps for investigating a new incident.
-
-## 2026-09-08 — Academic-year-pinned subscriptions
-
-- Pinned every generated subscription to an explicit academic year so a URL never silently replaces historical events with the next cohort's timetable.
-- Made the default `All` window cover the complete September-to-September academic year.
-- Preserved legacy tokens by inferring their academic year primarily from creation time; previously generated rolling tokens become pinned on first use after deployment.
-- Included the pinned year in token deduplication and ICS cache identity, so the same selections in a new academic year receive a distinct URL.
-
-## 2026-09-07 — Perennial academic windows and M2 filtering
-
-- Replaced saved absolute-year behavior with rolling/S1/S2 policies resolved against the current Europe/Paris academic year.
-- Added backward-compatible policy inference so legacy subscription tokens advance without a JSONB schema migration.
-- Extended S1 through January 8 and kept a short S1/S2 overlap for transition events.
-- Added M2 `UM5IN...` course/group recognition and automatic inclusion of common, ungrouped OIP lectures.
-- Changed output cache identity and HTTP ETags to follow effective calendar semantics.
-- Updated the M2 MIND course catalogue from `LMM` to the current `LLM` spelling.
-
 This file consolidates notable fixes and architectural changes. Each entry lists the date, focus area, and key files touched.
 
 ---

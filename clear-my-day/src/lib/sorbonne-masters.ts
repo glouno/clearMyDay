@@ -3,48 +3,27 @@
 
 import { SorborneCalendarSource } from './types';
 
-// Stable backend IDs mirror the legacy CalDAV paths. Only these labels are
-// presented to users; changing them does not alter storage or upstream URLs.
-export const MASTER_DISPLAY_NAMES: Record<string, string> = {
-  DAC: 'MIND',
-  IMA: 'IMA',
-  ANDROIDE: 'AI2D',
-  BIM: 'BIM',
-  SFPN: 'CCA',
-  IQ: 'QI',
-  RES: 'RES',
-  SAR: 'SAR',
-  SESI: 'SESI',
-  STL: 'STL',
-  HPC: 'HPC'
-};
-
-export function getMasterDisplayName(masterId: string): string {
-  const backendId = masterId.replace(/_M[12]$/, '');
-  return MASTER_DISPLAY_NAMES[backendId] ?? backendId;
-}
-
 export const ALL_SORBONNE_MASTERS: Record<string, SorborneCalendarSource> = {
   // ===== M1 MASTERS =====
   DAC: {
     id: 'DAC',
-    name: 'M1 MIND (Machine learning, INtelligence artificielle et Données)',
+    name: 'M1 MIND/DAC (Machine Learning, Artificial Intelligence and Data / Data, Apprentissage, Connaissances)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/DAC/M1_DAC',
-    courses: ['MLBDA', 'DALAS', 'LRC', 'MAPSI', 'PLMIND', 'RITAL', 'ML', 'IDLE', 'IAMSI', 'SAM', 'DJ', 'ANGLAIS'],
+    courses: ['DALAS', 'LRC', 'MLBDA', 'SAM', 'IAMSI', 'ML', 'MLL', 'RITAL', 'IDLE', 'ANGLAIS'],
     defaultGroups: { td: '5', tme: 'B' }
   },
   IMA: {
     id: 'IMA',
-    name: 'M1 IMA (Images, vision par ordinateur et informatique graphique)',
+    name: 'M1 IMA (Informatique Médicale et Applications)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/IMA/M1_IMA',
     courses: ['BIMA', 'MAPSI', 'IG3D'],
     defaultGroups: { td: '5' }
   },
   ANDROIDE: {
     id: 'ANDROIDE',
-    name: 'M1 AI2D (Algorithmes, Intelligence Artificielle, Interactions et Décision)',
+    name: 'M1 AI2D/ANDROIDE (Artificial Intelligence, Algorithms, Interactions and Decision-making / Agents Distribués, Robotique, Recherche Opérationnelle, Interaction, Décision)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/ANDROIDE/M1_ANDROIDE',
-    courses: ['MOGPL', 'LRC', 'IREC', 'ANGLAIS', 'PAI2D', 'AROB', 'RP', 'FOSYMA', 'IHM', 'DJ'],
+    courses: ['MOGPL', 'IREC', 'RP', 'FOSYMA', 'FO_SY_MA', 'IHM', 'DJ', 'AROB'],
     defaultGroups: {}
   },
   BIM: {
@@ -56,14 +35,14 @@ export const ALL_SORBONNE_MASTERS: Record<string, SorborneCalendarSource> = {
   },
   SFPN: {
     id: 'SFPN',
-    name: 'M1 CCA (Cryptologie, Calcul haute-performance et Algorithmique)',
+    name: 'M1 CCA/SFPN (Cryptology, High Performance Computing and Algorithmics)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/SFPN/M1_SFPN',
     courses: ['MODEL', 'COMPLEX', 'PPAR', 'FLAG', 'CRYPTO1', 'ANUM', 'ANUM2'],
     defaultGroups: {}
   },
   IQ: {
     id: 'IQ',
-    name: 'M1 QI (Quantum Information)',
+    name: 'M1 IQ (Quantum Information)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/IQ/M1_IQ',
     courses: ['BQPh', 'QCQC', 'QPh4CS', 'QPH4CS', 'THEORIE_DE_SHANNON', 'QIOV', 'PQIAS'],
     defaultGroups: {}
@@ -107,23 +86,23 @@ export const ALL_SORBONNE_MASTERS: Record<string, SorborneCalendarSource> = {
   // ===== M2 MASTERS (accessible ones) =====
   DAC_M2: {
     id: 'DAC_M2',
-    name: 'M2 MIND (Machine learning, INtelligence artificielle et Données)',
+    name: 'M2 MIND/DAC (Machine Learning, Artificial Intelligence and Data / Data, Apprentissage, Connaissances)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/DAC/M2_DAC',
-    courses: ['DEEP-L', 'LSDA', 'XAI', 'MEDS', 'RDFIA', 'GDC', 'SACE', 'RL', 'ADL', 'LLM', 'OIP'],
+    courses: ['BDLE', 'AMAL', 'RLD', 'REDS', 'LODAS', 'AS', 'XAI', 'FDMS', 'RI', 'CI', 'LSDA', 'MEDS', 'ASWS', 'SACE', 'ADL', 'GDC', 'RL', 'ORACOI', 'DEEP', 'LMM', 'OIP'],
     defaultGroups: {}
   },
   IMA_M2: {
     id: 'IMA_M2',
-    name: 'M2 IMA (Images, vision par ordinateur et informatique graphique)',
+    name: 'M2 IMA (Informatique Médicale et Applications)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/IMA/M2_IMA',
-    courses: ['RDFIA', 'TADI', 'BIOMED', 'VISION', 'MAPIMED', 'PRAT', 'OIP'],
+    courses: ['RDFIA', 'TADI', 'BIOMED', 'VISION', 'APIMED', 'PRAT', 'DA', 'OIP'],
     defaultGroups: {}
   },
   ANDROIDE_M2: {
     id: 'ANDROIDE_M2',
-    name: 'M2 AI2D (Algorithmes, Intelligence Artificielle, Interactions et Décision)',
+    name: 'M2 AI2D/ANDROIDE (Artificial Intelligence, Algorithms, Interactions and Decision-making / Agents Distribués, Robotique, Recherche Opérationnelle, Interaction, Décision)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/ANDROIDE/M2_ANDROIDE',
-    courses: ['IAR', 'COCOMA', 'MADMC', 'AOTJ', 'MAOA', 'MADI', 'MOSIMA', 'HAII', 'AI-ADAPT', 'OIP'],
+    courses: ['IAR', 'COCOMA', 'MADMC', 'AOTJ', 'MAOA', 'MADI', 'MOSIMA', 'ISG', 'EVIH', 'AI', 'OIP'],
     defaultGroups: {}
   },
   BIM_M2: {
@@ -163,16 +142,16 @@ export const ALL_SORBONNE_MASTERS: Record<string, SorborneCalendarSource> = {
   },
   SFPN_M2: {
     id: 'SFPN_M2',
-    name: 'M2 CCA (Cryptologie, Calcul haute-performance et Algorithmique)',
+    name: 'M2 CCA/SFPN (Cryptology, High Performance Computing and Algorithmics)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/SFPN/M2_SFPN',
-    courses: ['HPCA', 'GPU', 'CRYPTA', 'SCA', 'POSSO', 'AFAE', 'OIP'],
+    courses: ['HPCA', 'CRYPTA', 'SCA', 'POSSO', 'AFAE', 'OIP'],
     defaultGroups: {}
   },
   IQ_M2: {
     id: 'IQ_M2',
-    name: 'M2 QI (Quantum Information)',
+    name: 'M2 IQ (Quantum Information)',
     url: 'https://student.master:guest@cal.ufr-info-p6.jussieu.fr/caldav.php/IQ/M2_IQ',
-    courses: ['PHQC', 'QIT', 'AQCRYPT', 'QCRYPT', 'QALG', 'AQALG', 'OIP'],
+    courses: ['PhQC', 'QIT', 'AQCrypt', 'QCrypt', 'QAlg', 'AQAlg', 'OIP'],
     defaultGroups: {}
   }
 };
