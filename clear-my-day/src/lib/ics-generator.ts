@@ -31,11 +31,7 @@ export class ICSGenerator {
     
     // Events
     events.forEach(event => {
-      try {
-        lines.push(...this.generateEvent(event));
-      } catch (error) {
-        console.error(`[ICS-GEN] Failed to generate VEVENT for ${event.uid} (${event.summary})`, error);
-      }
+      lines.push(...this.generateEvent(event));
     });
     
     // Calendar footer
@@ -74,22 +70,11 @@ export class ICSGenerator {
    */
   private generateEvent(event: CalendarEvent): string[] {
     const lines: string[] = [];
-
-    const start = new Date(event.start);
-    const end = new Date(event.end);
-
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      console.error(
-        `[ICS-GEN] Skipping event with invalid DTSTART/DTEND: ${event.uid} (${event.summary}) ` +
-          `start=${String(event.start)} end=${String(event.end)}`
-      );
-      return [];
-    }
     
     lines.push('BEGIN:VEVENT');
     lines.push(`UID:${event.uid}`);
-    lines.push(`DTSTART;TZID=Europe/Paris:${this.formatDateTime(start)}`);
-    lines.push(`DTEND;TZID=Europe/Paris:${this.formatDateTime(end)}`);
+    lines.push(`DTSTART;TZID=Europe/Paris:${this.formatDateTime(new Date(event.start))}`);
+    lines.push(`DTEND;TZID=Europe/Paris:${this.formatDateTime(new Date(event.end))}`);
     lines.push(`SUMMARY:${this.escapeText(event.summary)}`);
     
     if (event.description) {
@@ -104,78 +89,22 @@ export class ICSGenerator {
       lines.push(`CATEGORIES:${event.categories.map(cat => this.escapeText(cat)).join(',')}`);
     }
     
-    // Add creation and modification timestamps (RFC 5545 requires UTC format with Z suffix)
-    const nowUTC = this.formatDateTimeUTC(new Date());
-    lines.push(`CREATED:${nowUTC}`);
-    lines.push(`LAST-MODIFIED:${nowUTC}`);
-    lines.push(`DTSTAMP:${nowUTC}`);
+    // Add creation and modification timestamps
+    const now = this.formatDateTime(new Date());
+    lines.push(`CREATED:${now}`);
+    lines.push(`LAST-MODIFIED:${now}`);
+    lines.push(`DTSTAMP:${now}`);
     
     // Add recurrence rule if present
     if (event.rrule) {
-      // node-ical's rrule.toString() can return multiline string with DTSTART
-      // Extract only the FREQ line which is the actual recurrence rule
-      const rruleStr = event.rrule.trim();
-      const lines_arr = rruleStr.split('\n').map(l => l.trim());
-      
-      // Find the line that starts with RRULE: or contains FREQ=
-      const rruleLine = lines_arr.find(l => 
-        l.startsWith('RRULE:') || l.startsWith('FREQ=')
-      );
-      
-      if (rruleLine) {
-        const normalized = rruleLine.replace(/^RRULE:/i, '');
-        lines.push(`RRULE:${normalized}`);
-      }
-    }
-    
-    // Add exception dates (EXDATE) if present
-    if (event.exdate && Array.isArray(event.exdate) && event.exdate.length > 0) {
-      try {
-        if (APP_CONFIG.DEBUG_LOGS) {
-          console.log(`[ICS-GEN] Processing EXDATE for ${event.uid}: ${event.exdate.length} entries`);
-        }
-        const entries = event.exdate
-          .map(date => {
-            const d = date instanceof Date ? date : new Date(date);
-            if (isNaN(d.getTime())) {
-              console.warn(`[ICS-GEN] Skipping invalid EXDATE entry for ${event.uid}: ${String(date)}`);
-              return null;
-            }
-            const formatted = this.formatDateTime(d);
-            if (APP_CONFIG.DEBUG_LOGS) {
-              console.log(`[ICS-GEN]   EXDATE entry: ${d.toISOString()} -> ${formatted}`);
-            }
-            return formatted;
-          })
-          .filter((entry): entry is string => !!entry && entry.length > 0);
-        
-        if (entries.length > 0) {
-          if (APP_CONFIG.DEBUG_LOGS) {
-            console.log(`[ICS-GEN] Adding EXDATE line with ${entries.length} entries`);
-          }
-          lines.push(`EXDATE;TZID=Europe/Paris:${entries.join(',')}`);
-        } else {
-          console.warn(`[ICS-GEN] No valid EXDATE entries after formatting for ${event.uid}`);
-        }
-      } catch (error) {
-        console.error(`[ICS-GEN] Failed to format EXDATE for event ${event.uid}:`, error);
-      }
-    } else {
-      if (event.rrule) {
-        if (APP_CONFIG.DEBUG_LOGS) {
-          console.log(`[ICS-GEN] Event ${event.uid} has RRULE but no EXDATE (exdate: ${event.exdate}, isArray: ${Array.isArray(event.exdate)}, length: ${event.exdate?.length})`);
-        }
-      }
+      // Fix RRULE timezone issues for Apple Calendar compatibility
+      const fixedRrule = this.fixRruleTimezone(event.rrule);
+      lines.push(`RRULE:${fixedRrule}`);
     }
     
     // Add recurrence ID if present
     if (event.recurrenceId) {
-      const recId = event.recurrenceId instanceof Date ? event.recurrenceId : new Date(event.recurrenceId);
-      if (isNaN(recId.getTime())) {
-        console.warn(`[ICS-GEN] Skipping invalid RECURRENCE-ID for ${event.uid}: ${String(event.recurrenceId)}`);
-      } else {
-        lines.push(`RECURRENCE-ID;TZID=Europe/Paris:${this.formatDateTime(recId)}`);
-      }
+      lines.push(`RECURRENCE-ID;TZID=Europe/Paris:${this.formatDateTime(event.recurrenceId)}`);
     }
     
     lines.push('END:VEVENT');
@@ -184,67 +113,27 @@ export class ICSGenerator {
   }
 
   /**
-   * Format date/time for ICS format in Europe/Paris timezone (YYYYMMDDTHHMMSS)
+   * Format date/time for ICS format (YYYYMMDDTHHMMSS)
    */
   private formatDateTime(date: Date): string {
-    // Convert to Paris timezone using Intl.DateTimeFormat
-    const parisTime = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Europe/Paris',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    }).formatToParts(date);
-
-    const year = parisTime.find(part => part.type === 'year')?.value || '';
-    const month = parisTime.find(part => part.type === 'month')?.value || '';
-    const day = parisTime.find(part => part.type === 'day')?.value || '';
-    const hours = parisTime.find(part => part.type === 'hour')?.value || '';
-    const minutes = parisTime.find(part => part.type === 'minute')?.value || '';
-    const seconds = parisTime.find(part => part.type === 'second')?.value || '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
     
     return `${year}${month}${day}T${hours}${minutes}${seconds}`;
   }
 
   /**
-   * Format date/time in UTC for ICS format (YYYYMMDDTHHMMSSZ)
-   * Required for DTSTAMP, CREATED, and LAST-MODIFIED per RFC 5545
-   */
-  private formatDateTimeUTC(date: Date): string {
-    const year = date.getUTCFullYear();
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(date.getUTCDate()).padStart(2, '0');
-    const hours = String(date.getUTCHours()).padStart(2, '0');
-    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
-    const seconds = String(date.getUTCSeconds()).padStart(2, '0');
-    
-    return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
-  }
-
-  /**
    * Fix RRULE timezone issues for better Apple Calendar compatibility
-   * Also handles malformed RRULEs from source calendars (e.g., Sorbonne CalDAV)
    */
   private fixRruleTimezone(rrule: string): string {
     let fixedRrule = rrule;
     
-    // Handle malformed RRULE with embedded DTSTART (common in some CalDAV servers)
-    // Example: "DTSTART;TZID=Europe/Paris:20250915T134500\nRRULE:FREQ=WEEKLY;UNTIL=20250915T215959"
-    if (fixedRrule.includes('DTSTART')) {
-      // Extract only the actual RRULE part (after DTSTART line and after "RRULE:" prefix)
-      const rruleParts = fixedRrule.split(/[\r\n]+/);
-      const actualRrule = rruleParts.find(part => part.includes('FREQ='));
-      if (actualRrule) {
-        // Remove "RRULE:" prefix if present
-        fixedRrule = actualRrule.replace(/^RRULE:/i, '');
-      }
-    }
-    
-    // Remove any remaining DTSTART parameters from RRULE (shouldn't be there per RFC 5545)
-    fixedRrule = fixedRrule.replace(/;?DTSTART[^;]*(;|$)/g, '$1');
+    // Remove any DTSTART from RRULE (it shouldn't be there)
+    fixedRrule = fixedRrule.replace(/;DTSTART=[^;]*/g, '');
     
     // Convert UTC UNTIL dates to local timezone format for better compatibility
     // Example: FREQ=WEEKLY;UNTIL=20250408T215959Z -> FREQ=WEEKLY;UNTIL=20250408T235959
@@ -259,9 +148,6 @@ export class ICSGenerator {
       const localDateStr = this.formatDateTime(parisDate);
       return `UNTIL=${localDateStr}`;
     });
-    
-    // Clean up any leading/trailing semicolons or whitespace
-    fixedRrule = fixedRrule.replace(/^;+|;+$/g, '').trim();
     
     return fixedRrule;
   }

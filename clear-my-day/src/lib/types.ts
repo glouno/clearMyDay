@@ -10,7 +10,6 @@ export interface CalendarEvent {
   categories?: string[];
   rrule?: string;
   recurrenceId?: Date;
-  exdate?: Date[]; // Exception dates - dates when recurring event should NOT occur
 }
 
 export interface FilterConfig {
@@ -27,8 +26,6 @@ export interface FilterConfig {
     start: Date;
     end: Date;
   };
-  dateRangePolicy?: 'academic-year' | 'semester-1' | 'semester-2' | 'rolling';
-  academicYearStart?: number;
   customRules?: {
     include?: string[];
     exclude?: string[];

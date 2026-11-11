@@ -5,7 +5,7 @@ import { CONFIRMED_MASTERS, ALL_SORBONNE_MASTERS } from './sorbonne-masters';
 
 // Sorbonne University Calendar Sources
 // Use CONFIRMED_MASTERS for production, ALL_SORBONNE_MASTERS for testing
-export const SORBONNE_CALENDARS: Record<string, SorborneCalendarSource> =
+export const SORBONNE_CALENDARS: Record<string, SorborneCalendarSource> = 
   process.env.NODE_ENV === 'production' ? CONFIRMED_MASTERS : ALL_SORBONNE_MASTERS;
 
 // Authentication credentials for Sorbonne calendars
@@ -19,27 +19,22 @@ export const APP_CONFIG = {
   // Default date range for calendar events (days)
   DEFAULT_DATE_RANGE_PAST: 30,     // Days in the past to include
   DEFAULT_DATE_RANGE_FUTURE: 365,  // Days in the future to include
-  CALENDAR_CACHE_TTL: 3600000,     // 1 hour in milliseconds (in-memory)
-  CACHE_TIMEOUT: 3600000,          // 1 hour in milliseconds (in-memory)
-  CALDAV_CACHE_TTL_HOURS: 6,       // Keep schedule changes reasonably fresh
-  ICS_OUTPUT_CACHE_TTL_HOURS: 1,   // 1 hour for final ICS output cache
+  CALENDAR_CACHE_TTL: 3600000,     // 1 hour in milliseconds
+  CACHE_TIMEOUT: 3600000,          // 1 hour in milliseconds
   RATE_LIMIT_REQUESTS_PER_MINUTE: 60,
   RATE_LIMIT_REQUESTS_PER_TOKEN: 10,
   MAX_RESPONSE_TIME_MS: 5000,
-  MAX_RETRIES: process.env.NODE_ENV === 'production' ? 2 : 2,  // Allow retries for unreliable Sorbonne servers
-  TIMEOUT: process.env.NODE_ENV === 'production' ? 20000 : 15000,   // 20s for production, 15s for dev (Sorbonne servers are slow)
+  MAX_RETRIES: 3,
+  TIMEOUT: 10000,                  // 10 seconds
   MIN_CACHE_SIZE: 100,             // Minimum events to cache
   MAX_CACHE_SIZE: 10000,           // Maximum events to cache
-  DEBUG_LOGS: process.env.CLEAR_MY_DAY_DEBUG === '1',
   DEFAULT_TIMEZONE: 'Europe/Paris',
   TIMEZONE: 'Europe/Paris',
   ICS_VERSION: '2.0',
   CALENDAR_PRODUCT_ID: '-//ClearMyDay//ClearMyDay Calendar Filter//EN',
   REFRESH_INTERVAL_MINUTES: 15,
   TOKEN_LENGTH: 32,
-  TOKEN_EXPIRY_DAYS: 365,
-  // Bump this version to invalidate all ICS caches (e.g. after fixing filtering logic)
-  LOGIC_VERSION: '2026-09-08-pinned-academic-years'
+  TOKEN_EXPIRY_DAYS: 365
 };
 
 // Group detection patterns
@@ -59,26 +54,11 @@ export const GROUP_PATTERNS = {
 
 // Course code patterns for filtering
 export const COURSE_PATTERNS = {
-  // DAC courses
   DALAS: /DALAS/i,
   LRC: /LRC/i,
   MLBDA: /MLBDA/i,
-  IDLE: /\bIDLE\b/i,
-  IAMSI: /\bIAMSI\b/i,
-  ML: /\bML\b/i,
-  RITAL: /\bRITAL\b/i,
-  SAM: /\bSAM\b/i,
-  ANGLAIS: /(LVAN|ANGLAIS)/i,
   MAPSI: /MAPSI/i,
-  MOGPL: /MOGPL/i,
-
-  // IMA courses
-  BIMA: /BIMA/i,
-
-  // ANDROIDE courses
-  IREC: /IREC/i,
-
-  // Add more courses as needed - this should be dynamic based on masters
+  MOGPL: /MOGPL/i
 };
 
 // HTTP headers for calendar requests

@@ -1,384 +1,249 @@
-// CalDAV client for fetching calendar data from Sorbonne endpoints
+// CalDAV client for fetching Sorbonne University calendar data
 
-import { CalendarFetchResult, CalendarEvent, CalendarSource } from './types';
-import { SORBONNE_CALENDARS, SORBONNE_AUTH, APP_CONFIG, HTTP_HEADERS, ERROR_MESSAGES } from './constants';
+import { CalendarEvent, CalendarFetchResult, SorborneCalendarSource } from './types';
+import { SORBONNE_AUTH, APP_CONFIG } from './constants';
 
-// Using node-ical for ICS parsing instead of xml2js
-import * as ical from 'node-ical';
-import type { VEvent } from 'node-ical';
-
-// interface FetchOptions { // Unused interface
-//   timeout?: number;
-//   retries?: number;
-//   retryDelay?: number;
-// }
-
-class CalDAVClient {
-  private cache = new Map<string, { data: string; timestamp: number }>();
-  private readonly cacheTimeout = APP_CONFIG.CACHE_TIMEOUT;
-  private readonly maxRetries = APP_CONFIG.MAX_RETRIES;
-  private readonly timeout = APP_CONFIG.TIMEOUT;
+export class CalDAVClient {
+  private cache = new Map<string, { data: CalendarEvent[]; timestamp: number; etag?: string }>();
 
   /**
-   * Fetch calendar data from a Sorbonne calendar source
-   * Uses CalDAV REPORT method with time-range filtering for current academic year
+   * Fetch calendar events from a Sorbonne CalDAV source
    */
-  async fetchCalendar(
-    source: CalendarSource
-  ): Promise<string> {
-    const cacheKey = `calendar_${source.name}`;
-    
-    // Check cache first
-    if (this.cache.has(cacheKey)) {
-      const cached = this.cache.get(cacheKey)!;
-      if (Date.now() - cached.timestamp < this.cacheTimeout) {
-        return cached.data;
-      }
-    }
-
-    let lastError: Error | null = null;
-    
-    // Fetch full calendar using GET to preserve EXDATE
-    // Note: CalDAV REPORT with time-range filter strips EXDATE entries
-    // We fetch all events and filter by date in calendar-parser
-    console.log(`📅 Fetching ${source.name} calendar (full data to preserve EXDATE)`);
-    
-    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
-      try {
-        // Create manual timeout controller (AbortSignal.timeout not reliable in Vercel)
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-        
-        const response = await fetch(source.url, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Basic ${Buffer.from(`${source.auth.username}:${source.auth.password}`).toString('base64')}`,
-            'User-Agent': HTTP_HEADERS.USER_AGENT,
-          },
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const calendarData = await response.text();
-        
-        if (!calendarData || !calendarData.includes('BEGIN:VCALENDAR')) {
-          throw new Error('Invalid calendar data received - missing VCALENDAR');
-        }
-        
-        // Cache the successful response
-        this.cache.set(cacheKey, {
-          data: calendarData,
-          timestamp: Date.now()
-        });
-
-        return calendarData;
-      } catch (error) {
-        lastError = error as Error;
-        console.warn(`Attempt ${attempt}/${this.maxRetries} failed for ${source.name}:`, error);
-        
-        if (attempt < this.maxRetries) {
-          // Exponential backoff
-          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      }
-    }
-
-    throw new Error(`Failed to fetch calendar ${source.name} after ${this.maxRetries} attempts: ${lastError?.message}`);
-  }
-
-  /**
-   * Fetch calendar data with timeout
-   */
-  private async fetchWithTimeout(url: string, timeout: number): Promise<CalendarFetchResult> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
+  async fetchCalendar(source: SorborneCalendarSource): Promise<CalendarFetchResult> {
     try {
-      const response = await fetch(url, {
+      console.log(`Fetching calendar for ${source.id} from ${source.url}`);
+
+      // Check cache first
+      const cached = this.cache.get(source.id);
+      if (cached && Date.now() - cached.timestamp < APP_CONFIG.CACHE_TIMEOUT) {
+        console.log(`Using cached data for ${source.id}`);
+        return {
+          success: true,
+          events: cached.data,
+          lastModified: new Date(cached.timestamp)
+        };
+      }
+
+      // Fetch from CalDAV server
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), APP_CONFIG.TIMEOUT);
+
+      // Remove credentials from URL if present and use Authorization header instead
+      const cleanUrl = source.url.replace(/https?:\/\/[^@]+@/, (match) => {
+        return match.split('@')[0].split('://')[0] + '://';
+      });
+
+      const response = await fetch(cleanUrl, {
+        method: 'GET',
         headers: {
-          'User-Agent': HTTP_HEADERS.USER_AGENT,
-          'Accept': HTTP_HEADERS.ACCEPT,
-          'Cache-Control': HTTP_HEADERS.CACHE_CONTROL
+          'Authorization': `Basic ${Buffer.from(`${SORBONNE_AUTH.username}:${SORBONNE_AUTH.password}`).toString('base64')}`,
+          'User-Agent': 'ClearMyDay/1.0 (Sorbonne Calendar Filter)',
+          'Accept': 'text/calendar, application/calendar+xml',
+          'Cache-Control': 'no-cache',
+          ...(cached?.etag && { 'If-None-Match': cached.etag })
         },
         signal: controller.signal
       });
 
       clearTimeout(timeoutId);
 
+      if (response.status === 304 && cached) {
+        console.log(`Calendar ${source.id} not modified, using cache`);
+        return {
+          success: true,
+          events: cached.data,
+          lastModified: new Date(cached.timestamp)
+        };
+      }
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const icsData = await response.text();
-      const events = this.parseICSData(icsData);
+      const icsContent = await response.text();
+      const events = this.parseICSContent(icsContent, source.id);
+
+      // Update cache
+      const etag = response.headers.get('etag');
+      this.cache.set(source.id, {
+        data: events,
+        timestamp: Date.now(),
+        etag: etag || undefined
+      });
+
+      console.log(`Successfully fetched ${events.length} events for ${source.id}`);
 
       return {
         success: true,
         events,
-        lastModified: response.headers.get('last-modified') 
-          ? new Date(response.headers.get('last-modified')!) 
-          : undefined,
-        etag: response.headers.get('etag') || undefined
+        lastModified: new Date(),
+        etag: etag || undefined
       };
+
     } catch (error) {
-      clearTimeout(timeoutId);
+      console.error(`Failed to fetch calendar ${source.id}:`, error);
       
-      if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          throw new Error('Request timeout');
-        }
-        throw error;
+      // Return cached data if available, even if stale
+      const cached = this.cache.get(source.id);
+      if (cached) {
+        console.log(`Using stale cached data for ${source.id}`);
+        return {
+          success: true,
+          events: cached.data,
+          lastModified: new Date(cached.timestamp),
+          error: `Using cached data: ${error instanceof Error ? error.message : 'Unknown error'}`
+        };
       }
-      
-      throw new Error('Unknown error occurred');
+
+      return {
+        success: false,
+        events: [],
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
     }
   }
 
   /**
-   * Parse ICS data and convert to CalendarEvent objects
+   * Fetch calendars for multiple masters in parallel
    */
-  private parseICSData(icsData: string): CalendarEvent[] {
-    try {
-      const parsedData = ical.parseICS(icsData);
-      const events: CalendarEvent[] = [];
-
-      for (const key in parsedData) {
-        const event = parsedData[key];
-        
-        if (event.type === 'VEVENT') {
-          type RecurrenceEntry = VEvent & {
-            recurrenceid?: Date | string | number;
-            recurrences?: Record<string, VEvent & { recurrenceid?: Date | string | number }>;
-          };
-
-          const vevent = event as RecurrenceEntry;
-          // Skip events without required fields
-          if (!vevent.summary || !vevent.start || !vevent.end) {
-            continue;
-          }
-
-          // Parse EXDATE (exception dates) for the base event only - node-ical returns them as an object with date keys
-          let baseExdates: Date[] | undefined = undefined;
-          if (vevent.exdate) {
-            if (APP_CONFIG.DEBUG_LOGS) {
-              console.log(`[CALDAV] Parsing EXDATE for ${vevent.uid} (${vevent.summary}): type=${typeof vevent.exdate}, isArray=${Array.isArray(vevent.exdate)}`);
-            }
-            
-            // node-ical returns exdate as object with date keys (e.g., {'2025-10-20': Date, '2025-10-27': Date})
-            // Check if it's an object with string keys first
-            if (typeof vevent.exdate === 'object' && !Array.isArray(vevent.exdate)) {
-              const exdateValues = Object.values(vevent.exdate) as (Date | string | number)[];
-              baseExdates = exdateValues.map((d) => new Date(d));
-              if (APP_CONFIG.DEBUG_LOGS) {
-                console.log(`[CALDAV]   Parsed ${baseExdates.length} EXDATE entries from object`);
-              }
-            } else if (typeof vevent.exdate === 'object' && Object.keys(vevent.exdate).length > 0) {
-              // Handle case where it's array-like but has string keys
-              const exdateValues = Object.values(vevent.exdate) as (Date | string | number)[];
-              baseExdates = exdateValues.map((d) => new Date(d));
-              if (APP_CONFIG.DEBUG_LOGS) {
-                console.log(`[CALDAV]   Parsed ${baseExdates.length} EXDATE entries from object keys`);
-              }
-            } else if (Array.isArray(vevent.exdate) && vevent.exdate.length > 0) {
-              baseExdates = vevent.exdate.map((d: Date | string | number) => new Date(d));
-              if (APP_CONFIG.DEBUG_LOGS) {
-                console.log(`[CALDAV]   Parsed ${baseExdates.length} EXDATE entries from array`);
-              }
-            } else {
-              // Single exdate or fallback
-              baseExdates = [new Date(vevent.exdate)];
-              if (APP_CONFIG.DEBUG_LOGS) {
-                console.log(`[CALDAV]   Parsed 1 EXDATE entry from single value`);
-              }
-            }
-            if (baseExdates && baseExdates.length > 0) {
-              if (APP_CONFIG.DEBUG_LOGS) {
-                console.log(`[CALDAV]   EXDATE dates: ${baseExdates.map(d => d.toISOString()).join(', ')}`);
-              }
-            }
-          }
-
-          const toDate = (value: Date | string | number): Date => {
-            if (value instanceof Date) {
-              return value;
-            }
-            return new Date(value);
-          };
-
-          const formatRrule = (rruleValue: RecurrenceEntry['rrule']): string | undefined => {
-            if (!rruleValue) {
-              return undefined;
-            }
-            return typeof rruleValue === 'string' ? rruleValue : rruleValue.toString();
-          };
-
-          const addCalendarEvent = (src: RecurrenceEntry, isRecurrence: boolean) => {
-            if (!src.summary || !src.start || !src.end) {
-              return;
-            }
-
-            const calendarEvent: CalendarEvent = {
-              uid: src.uid || vevent.uid || key,
-              summary: src.summary,
-              description: src.description || vevent.description || undefined,
-              start: toDate(src.start),
-              end: toDate(src.end),
-              location: src.location || vevent.location || undefined,
-              categories: undefined, // Categories not reliably available in node-ical
-              rrule: formatRrule(
-                src.rrule
-                  ? src.rrule
-                  : (!isRecurrence ? vevent.rrule : undefined)
-              ),
-              recurrenceId: isRecurrence && src.recurrenceid
-                ? toDate(src.recurrenceid)
-                : undefined,
-              // Only the base event carries the EXDATE list; recurrence overrides are separate exceptions
-              exdate: isRecurrence ? undefined : baseExdates
-            };
-
-            events.push(calendarEvent);
-          };
-
-          // Add base event
-          addCalendarEvent(vevent, false);
-
-          // Add recurrence overrides from node-ical (RECURRENCE-ID entries)
-          if (vevent.recurrences && typeof vevent.recurrences === 'object') {
-            const recurrenceEntries = Object.values(vevent.recurrences) as RecurrenceEntry[];
-            recurrenceEntries.forEach((recurrence) => {
-              addCalendarEvent(recurrence, true);
-            });
-          }
-        }
-      }
-
-      return events;
-    } catch (error) {
-      console.error('Failed to parse ICS data:', error);
-      throw new Error(ERROR_MESSAGES.CALENDAR_PARSE_ERROR);
-    }
-  }
-
-  /**
-   * Fetch all Sorbonne calendars
-   */
-  async fetchAllCalendars(sources: string[]): Promise<Record<string, CalendarFetchResult>> {
+  async fetchAllCalendars(masterIds: string[]): Promise<Record<string, CalendarFetchResult>> {
+    const { SORBONNE_CALENDARS } = await import('./constants');
+    
     const results: Record<string, CalendarFetchResult> = {};
     
     // Fetch all calendars in parallel
-    const promises = sources.map(async (sourceId) => {
-      try {
-        const sorborneSource = SORBONNE_CALENDARS[sourceId as keyof typeof SORBONNE_CALENDARS];
-        if (!sorborneSource) throw new Error(`Unknown source: ${sourceId}`);
-        
-        // Convert SorborneCalendarSource to CalendarSource
-        // Handle URLs with embedded auth (https://user:pass@domain.com/path)
-        let cleanUrl = sorborneSource.url;
-        let auth = SORBONNE_AUTH;
-        
-        if (sorborneSource.url.includes('@')) {
-          // Extract embedded auth from URL
-          const urlParts = sorborneSource.url.match(/https?:\/\/([^:]+):([^@]+)@(.+)/);
-          if (urlParts) {
-            const [, username, password, restOfUrl] = urlParts;
-            cleanUrl = `https://${restOfUrl}`;
-            auth = { username, password };
-          }
-        }
-        
-        const source: CalendarSource = {
-          name: sorborneSource.name,
-          url: cleanUrl,
-          auth: auth
-        };
-        
-        const icsData = await this.fetchCalendar(source);
-        const events = this.parseICSData(icsData);
-        
-        return { sourceId, result: { success: true, events } };
-      } catch (error) {
-        return { sourceId, result: { success: false, events: [], error: error instanceof Error ? error.message : 'Unknown error' } };
-      }
-    });
-
-    const responses = await Promise.allSettled(promises);
-    
-    responses.forEach((response, index) => {
-      const sourceId = sources[index];
-      
-      if (response.status === 'fulfilled') {
-        results[sourceId] = response.value.result;
-      } else {
-        results[sourceId] = {
+    const fetchPromises = masterIds.map(async (masterId) => {
+      const source = SORBONNE_CALENDARS[masterId];
+      if (!source) {
+        results[masterId] = {
           success: false,
           events: [],
-          error: `Failed to fetch ${sourceId}: ${response.reason}`
+          error: `Unknown master program: ${masterId}`
         };
+        return;
       }
+
+      results[masterId] = await this.fetchCalendar(source);
     });
 
+    await Promise.all(fetchPromises);
     return results;
   }
 
   /**
-   * Check health of all calendar sources
+   * Parse ICS content into CalendarEvent objects
    */
-  async healthCheck(): Promise<Record<string, 'up' | 'down'>> {
-    const health: Record<string, 'up' | 'down'> = {};
+  private parseICSContent(icsContent: string, sourceId: string): CalendarEvent[] {
+    const events: CalendarEvent[] = [];
+    const lines = icsContent.split(/\r\n|\n/);
     
-    const promises = Object.keys(SORBONNE_CALENDARS).map(async (sourceId) => {
-      try {
-        const sorborneSource = SORBONNE_CALENDARS[sourceId as keyof typeof SORBONNE_CALENDARS];
-        if (!sorborneSource) throw new Error(`Unknown source: ${sourceId}`);
-        
-        // Convert SorborneCalendarSource to CalendarSource
-        // Handle URLs with embedded auth (https://user:pass@domain.com/path)
-        let cleanUrl = sorborneSource.url;
-        let auth = SORBONNE_AUTH;
-        
-        if (sorborneSource.url.includes('@')) {
-          // Extract embedded auth from URL
-          const urlParts = sorborneSource.url.match(/https?:\/\/([^:]+):([^@]+)@(.+)/);
-          if (urlParts) {
-            const [, username, password, restOfUrl] = urlParts;
-            cleanUrl = `https://${restOfUrl}`;
-            auth = { username, password };
-          }
-        }
-        
-        const source: CalendarSource = {
-          name: sorborneSource.name,
-          url: cleanUrl,
-          auth: auth
-        };
-        
-        await this.fetchCalendar(source);
-        return { sourceId, status: 'up' as const };
-      } catch {
-        return { sourceId, status: 'down' as const };
-      }
-    });
+    let currentEvent: Partial<CalendarEvent> = {};
+    let inEvent = false;
 
-    const responses = await Promise.allSettled(promises);
-    
-    responses.forEach((response, index) => {
-      const sourceId = Object.keys(SORBONNE_CALENDARS)[index];
+    for (const line of lines) {
+      const trimmedLine = line.trim();
       
-      if (response.status === 'fulfilled') {
-        health[sourceId] = response.value.status;
-      } else {
-        health[sourceId] = 'down';
+      if (trimmedLine === 'BEGIN:VEVENT') {
+        inEvent = true;
+        currentEvent = { categories: [sourceId] };
+      } else if (trimmedLine === 'END:VEVENT' && inEvent) {
+        if (currentEvent.uid && currentEvent.summary && currentEvent.start && currentEvent.end) {
+          events.push(currentEvent as CalendarEvent);
+        }
+        currentEvent = {};
+        inEvent = false;
+      } else if (inEvent) {
+        this.parseEventLine(trimmedLine, currentEvent);
       }
-    });
+    }
 
-    return health;
+    return events;
+  }
+
+  /**
+   * Parse a single line of an ICS event
+   */
+  private parseEventLine(line: string, event: Partial<CalendarEvent>): void {
+    if (line.startsWith('UID:')) {
+      event.uid = line.substring(4);
+    } else if (line.startsWith('SUMMARY:')) {
+      event.summary = this.unescapeICSText(line.substring(8));
+    } else if (line.startsWith('DTSTART')) {
+      const dateStr = this.extractDateFromLine(line);
+      if (dateStr) {
+        event.start = this.parseICSDate(dateStr);
+      }
+    } else if (line.startsWith('DTEND')) {
+      const dateStr = this.extractDateFromLine(line);
+      if (dateStr) {
+        event.end = this.parseICSDate(dateStr);
+      }
+    } else if (line.startsWith('LOCATION:')) {
+      event.location = this.unescapeICSText(line.substring(9));
+    } else if (line.startsWith('DESCRIPTION:')) {
+      event.description = this.unescapeICSText(line.substring(12));
+    } else if (line.startsWith('RRULE:')) {
+      event.rrule = line.substring(6);
+    } else if (line.startsWith('RECURRENCE-ID')) {
+      const dateStr = this.extractDateFromLine(line);
+      if (dateStr) {
+        event.recurrenceId = new Date(this.parseICSDate(dateStr));
+      }
+    }
+  }
+
+  /**
+   * Extract date string from ICS line (handles TZID parameters)
+   */
+  private extractDateFromLine(line: string): string | null {
+    const colonIndex = line.indexOf(':');
+    if (colonIndex === -1) return null;
+    return line.substring(colonIndex + 1);
+  }
+
+  /**
+   * Parse ICS date format to ISO string
+   */
+  private parseICSDate(dateStr: string): string {
+    if (dateStr.includes('T')) {
+      // DateTime format: 20240101T080000Z or 20240101T080000
+      const cleanStr = dateStr.replace(/[TZ]/g, '');
+      const year = cleanStr.substring(0, 4);
+      const month = cleanStr.substring(4, 6);
+      const day = cleanStr.substring(6, 8);
+      const hour = cleanStr.substring(8, 10) || '00';
+      const minute = cleanStr.substring(10, 12) || '00';
+      const second = cleanStr.substring(12, 14) || '00';
+      
+      let date: Date;
+      if (dateStr.endsWith('Z')) {
+        // UTC time
+        date = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}Z`);
+      } else {
+        // Local time - treat as Europe/Paris
+        date = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`);
+      }
+      
+      return date.toISOString();
+    } else {
+      // Date format: 20240101
+      const year = dateStr.substring(0, 4);
+      const month = dateStr.substring(4, 6);
+      const day = dateStr.substring(6, 8);
+      const date = new Date(`${year}-${month}-${day}`);
+      return date.toISOString();
+    }
+  }
+
+  /**
+   * Unescape ICS text content
+   */
+  private unescapeICSText(text: string): string {
+    return text
+      .replace(/\\n/g, '\n')
+      .replace(/\\,/g, ',')
+      .replace(/\\;/g, ';')
+      .replace(/\\\\/g, '\\');
   }
 
   /**
@@ -386,7 +251,7 @@ class CalDAVClient {
    */
   clearCache(sourceId?: string): void {
     if (sourceId) {
-      this.cache.delete(`calendar_${sourceId}`);
+      this.cache.delete(sourceId);
     } else {
       this.cache.clear();
     }
@@ -395,18 +260,18 @@ class CalDAVClient {
   /**
    * Get cache statistics
    */
-  getCacheStats(): { size: number; keys: string[] } {
+  getCacheStats(): { size: number; entries: Array<{ id: string; age: number; eventCount: number }> } {
+    const now = Date.now();
+    const entries = Array.from(this.cache.entries()).map(([id, data]) => ({
+      id,
+      age: Math.round((now - data.timestamp) / 1000),
+      eventCount: data.data.length
+    }));
+
     return {
       size: this.cache.size,
-      keys: Array.from(this.cache.keys())
+      entries
     };
-  }
-
-  /**
-   * Utility method for delays
-   */
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 
