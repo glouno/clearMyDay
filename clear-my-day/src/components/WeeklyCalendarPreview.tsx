@@ -120,8 +120,10 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
     try {
       console.log('🚀 Fetching calendar events using simplified flow...');
 
-      // Preview without creating or updating a persistent subscription token.
-      const response = await fetch('/api/preview-calendar', {
+      // Step 1: Generate calendar using the working API
+      // Note: Using a static preview name to avoid database pollution
+      // All preview calendars share the same token (efficient for CalDAV caching)
+      const response = await fetch('/api/generate-calendar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -149,10 +151,16 @@ export default function WeeklyCalendarPreview({ courseGroups, selectedCourses, s
         throw new Error(data.error || 'Failed to generate calendar');
       }
 
-      const icsContent = data.data.icsContent;
-      if (typeof icsContent !== 'string') {
-        throw new Error('Preview response did not include calendar data');
+      console.log('✅ Calendar generated successfully:', data.data.token);
+
+      // Step 2: Fetch the ICS content
+      const icsResponse = await fetch(data.data.subscriptionUrl);
+
+      if (!icsResponse.ok) {
+        throw new Error(`ICS Fetch Error: ${icsResponse.status}`);
       }
+
+      const icsContent = await icsResponse.text();
       console.log('✅ ICS content fetched, length:', icsContent.length);
 
       // Debug: Show first few lines of ICS to understand format

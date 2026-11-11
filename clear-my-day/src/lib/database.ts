@@ -24,8 +24,7 @@ function initializeDatabase(): DatabaseClient {
 
   // Fall back to Supabase
   const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    || (process.env.NODE_ENV !== 'production' ? process.env.SUPABASE_ANON_KEY : undefined);
+  const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
     console.warn('Database credentials not found. Caching will be disabled.');

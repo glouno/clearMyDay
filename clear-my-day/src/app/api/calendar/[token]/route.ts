@@ -6,7 +6,7 @@ import { CalendarStorage, CalendarConfig } from '@/lib/calendar-storage';
 import { caldavClient } from '@/lib/caldav-client';
 import { ICSGenerator } from '@/lib/ics-generator';
 import { CalendarParser } from '@/lib/calendar-parser';
-import { cleanupExpiredCaches, supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { CalendarEvent } from '@/lib/types';
 import { APP_CONFIG } from '@/lib/constants';
 import { resolveDateRange } from '@/lib/date-range-policy';
@@ -73,9 +73,7 @@ function createICSResponse(
   const semanticContent = icsContent.replace(/^(CREATED|LAST-MODIFIED|DTSTAMP):.*\r?$/gm, '');
   const contentHash = crypto.createHash('sha256').update(semanticContent).digest('hex').slice(0, 24);
   const etag = `"${contentHash}"`;
-  // Calendar clients already poll conservatively. Keep edge staleness bounded so
-  // upstream changes are visible shortly after the six-hour CalDAV cache rolls.
-  const cacheControl = 'public, max-age=900, s-maxage=1800, stale-while-revalidate=3600';
+  const cacheControl = 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=21600';
 
   if (clientEtag === etag) {
     return new NextResponse(null, {
@@ -199,7 +197,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         .filter(result => result.success)
         .flatMap(result => result.events);
 
-      // Cache the CalDAV response (configurable TTL, default 6 hours)
+      // Cache the CalDAV response (configurable TTL, default 12 hours)
       if (supabase && allEvents.length > 0) {
         try {
           const expiresAt = new Date();
@@ -216,7 +214,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             });
 
           console.log(`💾 Cached CalDAV response for ${caldavCacheKey} (expires in ${APP_CONFIG.CALDAV_CACHE_TTL_HOURS} hours)`);
-          await cleanupExpiredCaches();
         } catch (cacheError: unknown) {
           console.warn('Failed to cache CalDAV response:', cacheError);
         }

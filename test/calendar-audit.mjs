@@ -21,11 +21,13 @@ const FETCH_TIMEOUT_MS = 30000;
 
 function usage() {
   console.log(`\nUsage:
+  node test/calendar-audit.mjs --token <uuid> [--start YYYY-MM-DD] [--end YYYY-MM-DD] [--fresh]
   node test/calendar-audit.mjs --url <calendarUrl> --masters DAC [--start YYYY-MM-DD] [--end YYYY-MM-DD] [--fresh]
 
 Options:
-  --url             ClearMyDay calendar subscription URL
-  --masters         Comma-separated master IDs
+  --token           ClearMyDay token (fetches config via /api/debug-cache)
+  --url             ClearMyDay calendar URL (if no token)
+  --masters         Comma-separated master IDs (needed when using --url)
   --start           Audit range start (YYYY-MM-DD or ISO)
   --end             Audit range end (YYYY-MM-DD or ISO)
   --fresh           Re-download source and output ICS files
@@ -364,6 +366,19 @@ function getAuthFromUrl(url, fallbackUser, fallbackPass) {
   return { user: fallbackUser, pass: fallbackPass, url };
 }
 
+async function fetchJson(url) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const response = await fetch(url, { signal: controller.signal });
+  if (!response.ok) {
+    clearTimeout(timeoutId);
+    throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+  }
+  const data = await response.json();
+  clearTimeout(timeoutId);
+  return data;
+}
+
 async function fetchToFile(url, dest, auth, fresh) {
   if (!fresh && fs.existsSync(dest)) {
     return dest;
@@ -414,6 +429,7 @@ async function main() {
     process.exit(0);
   }
 
+  const token = args['--token'];
   const url = args['--url'];
   const mastersArg = args['--masters'];
   const startArg = args['--start'];
@@ -422,29 +438,42 @@ async function main() {
   const caldavUser = args['--caldav-user'] || DEFAULT_CALDAV_USER;
   const caldavPass = args['--caldav-pass'] || DEFAULT_CALDAV_PASS;
 
-  if (!url) {
+  if (!token && !url) {
     usage();
-    throw new Error('Missing --url');
+    throw new Error('Missing --token or --url');
   }
 
   ensureDir(cacheDir);
 
-  const masters = mastersArg?.split(',').map(item => item.trim()).filter(Boolean) || [];
-  const calendarUrl = url;
+  let filter = null;
+  let masters = [];
+  let calendarUrl = url;
+  let configDateRange = null;
+
+  if (token) {
+    calendarUrl = calendarUrl || `https://www.clearmyday.com/api/calendar/${token}`;
+    const debugUrl = `https://www.clearmyday.com/api/debug-cache?token=${token}`;
+    const debugData = await fetchJson(debugUrl);
+    filter = debugData?.token?.filter || null;
+    masters = filter?.masters || [];
+    configDateRange = filter?.dateRange || null;
+  } else if (mastersArg) {
+    masters = mastersArg.split(',').map(item => item.trim()).filter(Boolean);
+  }
 
   if (!calendarUrl) {
     throw new Error('Missing calendar URL');
   }
 
   if (!masters.length) {
-    throw new Error('No masters provided. Use --masters.');
+    throw new Error('No masters provided or discovered. Use --masters when not using --token.');
   }
 
-  const startDate = parseDateInput(startArg);
-  const endDate = parseDateInput(endArg);
+  const startDate = parseDateInput(startArg) || (configDateRange?.start ? new Date(configDateRange.start) : null);
+  const endDate = parseDateInput(endArg) || (configDateRange?.end ? new Date(configDateRange.end) : null);
 
   if (!startDate || !endDate) {
-    throw new Error('Missing --start or --end');
+    throw new Error('Missing --start/--end or no dateRange in token config');
   }
 
   if (startDate >= endDate) {
@@ -457,6 +486,15 @@ async function main() {
   console.log(`- Calendar URL: ${calendarUrl}`);
   console.log(`- Masters: ${masters.join(', ')}`);
   console.log(`- Audit range: ${startDate.toISOString()} -> ${endDate.toISOString()}`);
+  if (configDateRange) {
+    console.log(`- Token dateRange: ${configDateRange.start} -> ${configDateRange.end}`);
+    const configStart = new Date(configDateRange.start);
+    const configEnd = new Date(configDateRange.end);
+    const overlaps = configStart <= range.end && configEnd >= range.start;
+    if (!overlaps) {
+      console.log('! Audit range does not overlap token dateRange; missing events may be expected.');
+    }
+  }
   console.log('');
 
   const masterUrls = extractUrlsFromMasters(masters);

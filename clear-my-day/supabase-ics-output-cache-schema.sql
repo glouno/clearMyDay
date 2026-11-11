@@ -20,7 +20,11 @@ CREATE INDEX IF NOT EXISTS idx_ics_output_cache_expires_at ON ics_output_cache(e
 -- Enable Row Level Security (RLS)
 ALTER TABLE ics_output_cache ENABLE ROW LEVEL SECURITY;
 
-REVOKE ALL ON TABLE ics_output_cache FROM anon, authenticated;
+-- Create policy to allow all operations (this is a cache table, no sensitive data)
+CREATE POLICY "Allow all operations on ics_output_cache" ON ics_output_cache
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
 
 -- Optional: Create a function to clean up expired cache entries
 CREATE OR REPLACE FUNCTION cleanup_expired_ics_output_cache()

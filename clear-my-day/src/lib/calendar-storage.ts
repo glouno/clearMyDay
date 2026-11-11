@@ -19,8 +19,6 @@ export interface CalendarConfig {
   createdAt: Date;
 }
 
-export type CalendarPersistenceOutcome = 'durable' | 'memory-only' | 'failed';
-
 export interface CalendarTokenRow {
   token: string;
   name: string;
@@ -151,9 +149,12 @@ export class CalendarStorage {
   }
 
   // Save calendar configuration to Supabase
-  static async set(token: string, config: CalendarConfig): Promise<CalendarPersistenceOutcome> {
+  static async set(token: string, config: CalendarConfig): Promise<boolean> {
     if (!supabase) {
-      return this.saveTemporary(token, config);
+      // Fallback to in-memory storage if Supabase not available
+      console.warn('Supabase not available, using in-memory storage (not persistent)');
+      calendarConfigs.set(token, config);
+      return true;
     }
 
     try {
@@ -172,27 +173,19 @@ export class CalendarStorage {
 
       if (error) {
         console.error('Failed to save calendar config to Supabase:', error);
-        return this.saveTemporary(token, config);
+        // Fallback to in-memory storage
+        calendarConfigs.set(token, config);
+        return false;
       }
 
-      // A confirmed retry supersedes any temporary development configuration.
-      calendarConfigs.delete(token);
       console.log(`✅ Calendar config saved to Supabase: ${token} (hash: ${configHash.substring(0, 8)}...)`);
-      return 'durable';
+      return true;
     } catch (error) {
       console.error('Error saving to Supabase:', error);
-      return this.saveTemporary(token, config);
+      // Fallback to in-memory storage
+      calendarConfigs.set(token, config);
+      return false;
     }
-  }
-
-  private static saveTemporary(token: string, config: CalendarConfig): CalendarPersistenceOutcome {
-    // Never install an unacknowledged production config, including updates to
-    // existing tokens. Their previous persistent configuration remains authoritative.
-    if (process.env.NODE_ENV === 'production') return 'failed';
-
-    console.warn('Using temporary in-memory calendar storage (not persistent)');
-    calendarConfigs.set(token, config);
-    return 'memory-only';
   }
 
   // Get calendar configuration from Supabase

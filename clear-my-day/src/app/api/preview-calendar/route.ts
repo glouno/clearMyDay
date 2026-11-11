@@ -4,17 +4,24 @@ import { caldavClient } from '@/lib/caldav-client';
 import { ICSGenerator } from '@/lib/ics-generator';
 import { CalendarParser } from '@/lib/calendar-parser';
 import { resolveDateRange } from '@/lib/date-range-policy';
-import { validateCalendarRequest } from '@/lib/request-validation';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { name, filter } = body;
 
-    const validationError = validateCalendarRequest(body);
-    if (validationError) {
+    // Validate input
+    if (!name || !filter) {
       return NextResponse.json(
-        { success: false, error: validationError },
+        { success: false, error: 'Name and filter are required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate filter structure
+    if (!filter.masters || !Array.isArray(filter.masters) || filter.masters.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'At least one master program must be selected' },
         { status: 400 }
       );
     }
@@ -93,7 +100,7 @@ export async function POST(request: NextRequest) {
         totalEvents: allEvents.length,
         filteredEvents: filteredEvents.length,
         events: filteredEvents.slice(0, 50), // Return first 50 events for preview
-        icsContent,
+        icsContent: icsContent.substring(0, 2000), // Return first 2000 chars of ICS for preview
         sources: Object.entries(results).map(([source, result]) => ({
           source,
           success: result.success,

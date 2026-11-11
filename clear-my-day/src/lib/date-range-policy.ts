@@ -20,8 +20,7 @@ function parisDateParts(now: Date): { year: number; month: number; day: number }
 
 export function currentAcademicYearStart(now: Date = new Date()): number {
   const { year, month } = parisDateParts(now);
-  // getMonth-style values are zero-based; September is month 8.
-  return month >= 8 ? year : year - 1;
+  return month >= 7 ? year : year - 1;
 }
 
 export function dateRangeForPolicy(

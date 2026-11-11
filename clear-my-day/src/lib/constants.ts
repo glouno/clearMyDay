@@ -21,7 +21,7 @@ export const APP_CONFIG = {
   DEFAULT_DATE_RANGE_FUTURE: 365,  // Days in the future to include
   CALENDAR_CACHE_TTL: 3600000,     // 1 hour in milliseconds (in-memory)
   CACHE_TIMEOUT: 3600000,          // 1 hour in milliseconds (in-memory)
-  CALDAV_CACHE_TTL_HOURS: 6,       // Keep schedule changes reasonably fresh
+  CALDAV_CACHE_TTL_HOURS: 12,      // 12 hours for Supabase CalDAV cache (reduces CPU usage)
   ICS_OUTPUT_CACHE_TTL_HOURS: 1,   // 1 hour for final ICS output cache
   RATE_LIMIT_REQUESTS_PER_MINUTE: 60,
   RATE_LIMIT_REQUESTS_PER_TOKEN: 10,

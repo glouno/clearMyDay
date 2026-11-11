@@ -75,7 +75,7 @@ The current code uses `@supabase/supabase-js`. For cloud migration, you need to:
    - See `docs/cloud-migration-plan.md` step 6 for details
 
 2. **Update environment variables**
-   - Remove: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+   - Remove: `SUPABASE_URL`, `SUPABASE_ANON_KEY`
    - Add: `DATABASE_URL` (PostgreSQL connection string)
 
 ## Architecture After Migration
