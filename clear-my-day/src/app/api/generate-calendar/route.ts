@@ -1,59 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { CalendarStorage, CalendarConfig } from '@/lib/calendar-storage';
-import { resolveDateRange } from '@/lib/date-range-policy';
-import { validateCalendarRequest } from '@/lib/request-validation';
+import { calendarConfigs, CalendarConfig } from '@/lib/calendar-storage';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { name, filter } = body;
 
-    const validationError = validateCalendarRequest(body);
-    if (validationError) {
+    // Validate input
+    if (!name || !filter) {
       return NextResponse.json(
-        { success: false, error: validationError },
+        { success: false, error: 'Name and filter are required' },
         { status: 400 }
       );
     }
 
-    const createdAt = new Date();
-    const effectiveRange = resolveDateRange(
-      filter.dateRangePolicy,
-      filter.dateRange,
-      filter.academicYearStart,
-      createdAt
-    );
+    // Validate filter structure
+    if (!filter.masters || !Array.isArray(filter.masters) || filter.masters.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'At least one master program must be selected' },
+        { status: 400 }
+      );
+    }
 
-    // Store a canonical, pinned academic window rather than client-computed dates.
-    const config: CalendarConfig = {
+    // Generate unique token for this calendar configuration
+    const token = uuidv4();
+    
+    // Store the configuration
+    calendarConfigs.set(token, {
       name,
       filter: {
         ...filter,
-        dateRangePolicy: effectiveRange.policy,
-        academicYearStart: effectiveRange.academicYearStart,
         dateRange: {
-          start: effectiveRange.start.toISOString(),
-          end: effectiveRange.end.toISOString()
+          start: new Date(filter.dateRange.start),
+          end: new Date(filter.dateRange.end)
         }
       },
-      createdAt
-    };
-    
-    // Check if a token with the same configuration already exists (deduplication)
-    const token = await CalendarStorage.findExisting(config) || uuidv4();
-
-    // Refresh reused tokens too, but acknowledge only this confirmed save.
-    const persistence = await CalendarStorage.set(token, config);
-    if (persistence === 'failed'
-      || (process.env.NODE_ENV === 'production' && persistence !== 'durable')) {
-      return NextResponse.json({
-        success: false,
-        persistence: 'failed',
-        retryable: true,
-        error: 'Calendar persistence could not be confirmed. Please retry. Existing subscriptions may still use their previous settings.'
-      }, { status: 503 });
-    }
+      createdAt: new Date()
+    });
 
     // Generate subscription URL
     const baseUrl = process.env.NODE_ENV === 'production'
@@ -64,10 +48,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      persistence,
-      ...(persistence === 'memory-only' ? {
-        warning: 'Temporary development URL: saved only in this server process. It may stop working after a restart or on another instance.'
-      } : {}),
       data: {
         token,
         subscriptionUrl,
@@ -84,5 +64,5 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Export the calendar storage for use by other API routes
-export { CalendarStorage };
+// Export the calendar configs for use by other API routes
+export { calendarConfigs };

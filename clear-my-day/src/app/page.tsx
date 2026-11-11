@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import SimplifiedCalendarSelector from '@/components/SimplifiedCalendarSelector';
 import WeeklyCalendarPreview from '@/components/WeeklyCalendarPreview';
 import { FilterConfig } from '@/lib/types';
@@ -9,19 +9,17 @@ export default function Home() {
   const [courseGroups, setCourseGroups] = useState<{[courseId: string]: string}>({});
   const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
   const [selectedMasters, setSelectedMasters] = useState<('DAC' | 'IMA' | 'ANDROIDE')[]>([]);
-  const [dateRange, setDateRange] = useState<{ start: Date; end: Date } | null>(null);
   const [showWeeklyCalendar, setShowWeeklyCalendar] = useState(false);
 
-  const handleFilterChange = useCallback((filter: FilterConfig) => {
+  const handleFilterChange = (filter: FilterConfig) => {
     setSelectedMasters(filter.masters as ('DAC' | 'IMA' | 'ANDROIDE')[]);
     setSelectedCourses(filter.courses);
     setCourseGroups(filter.courseGroups || {});
-    setDateRange(filter.dateRange || null);
-  }, []);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+      <div className="container mx-auto px-4 py-8">
         <SimplifiedCalendarSelector
           onFilterChange={handleFilterChange}
           onPreview={() => {}}
@@ -29,15 +27,17 @@ export default function Home() {
         />
 
         {/* Weekly Calendar Preview Section */}
-        <div className="mt-4 sm:mt-8">
+        <div className="mt-8">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Calendar Preview</h2>
-            <button
-              onClick={() => setShowWeeklyCalendar(!showWeeklyCalendar)}
-              className="bg-purple-600 text-white px-4 sm:px-6 py-2 rounded-md hover:bg-purple-700 text-sm sm:text-base"
-            >
-              {showWeeklyCalendar ? 'Hide' : 'Show'} Weekly Calendar
-            </button>
+            <h2 className="text-2xl font-bold text-gray-900">Calendar Preview</h2>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowWeeklyCalendar(!showWeeklyCalendar)}
+                className="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700"
+              >
+                {showWeeklyCalendar ? 'Hide' : 'Show'} Weekly Calendar
+              </button>
+            </div>
           </div>
 
           {showWeeklyCalendar && (
@@ -45,10 +45,9 @@ export default function Home() {
               courseGroups={courseGroups}
               selectedCourses={selectedCourses}
               selectedMasters={selectedMasters}
-              dateRange={dateRange || undefined}
-              autoLoad={true}
             />
           )}
+
         </div>
       </div>
     </div>

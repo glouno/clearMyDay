@@ -33,7 +33,7 @@ export function expandRecurringEvents(
 ): ExpandedEvent[] {
   const expandedEvents: ExpandedEvent[] = [];
 
-  events.forEach((event) => {
+  events.forEach((event, eventIndex) => {
     if (!event.rrule) {
       // Non-recurring event - add as-is if within date range
       if (event.start >= dateRange.start && event.start <= dateRange.end) {
@@ -91,8 +91,8 @@ export function expandRecurringEvents(
         });
       });
       
-    } catch {
-      console.warn(`Failed to expand recurring event ${event.id}`);
+    } catch (error) {
+      console.warn(`Failed to expand recurring event ${event.id}:`, error);
       console.warn(`RRULE was: ${event.rrule}`);
       
       // Fallback: include the original event if it's within range
@@ -115,7 +115,7 @@ export function getRRuleDescription(rruleString: string): string {
   try {
     const rrule = RRule.fromString(rruleString);
     return rrule.toText();
-  } catch {
+  } catch (error) {
     return `Invalid recurrence rule: ${rruleString}`;
   }
 }

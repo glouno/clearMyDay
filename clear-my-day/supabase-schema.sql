@@ -13,10 +13,13 @@ CREATE TABLE IF NOT EXISTS analyze_events_cache (
 CREATE INDEX IF NOT EXISTS idx_analyze_events_cache_expires_at 
 ON analyze_events_cache(expires_at);
 
--- Internal server table: service-role access only.
+-- Enable Row Level Security (optional, for security)
 ALTER TABLE analyze_events_cache ENABLE ROW LEVEL SECURITY;
 
-REVOKE ALL ON TABLE analyze_events_cache FROM anon, authenticated;
+-- Policy to allow all operations (adjust as needed)
+CREATE POLICY "Allow all operations on analyze_events_cache" 
+ON analyze_events_cache FOR ALL 
+USING (true);
 
 -- Clean up expired entries (run this periodically or set up a cron job)
 -- DELETE FROM analyze_events_cache WHERE expires_at < NOW();

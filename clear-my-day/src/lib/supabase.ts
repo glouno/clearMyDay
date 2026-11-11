@@ -2,13 +2,10 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.SUPABASE_URL;
-// This client is server-only. Production database tables deliberately deny
-// access to anon/authenticated roles, so writes must use the service role.
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  || (process.env.NODE_ENV !== 'production' ? process.env.SUPABASE_ANON_KEY : undefined);
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-  console.warn('Server-side Supabase credentials not found. Persistence and caching are disabled.');
+  console.warn('Supabase credentials not found. Caching will be disabled.');
 }
 
 export const supabase = supabaseUrl && supabaseKey 
@@ -44,17 +41,5 @@ export function isCacheValid(cacheEntry: AnalyzeEventsCache): boolean {
   return new Date(cacheEntry.expires_at) > new Date();
 }
 
-// Schedules and group labels can change during a semester. A daily refresh
-// keeps discovery current without repeatedly downloading full CalDAV feeds.
-export const CACHE_TTL_HOURS = 24;
-
-/** Remove expired cache rows. Call only on cache writes, not on cache hits. */
-export async function cleanupExpiredCaches(): Promise<void> {
-  if (!supabase) return;
-
-  const { error } = await supabase.rpc('cleanup_expired_cache_rows');
-  if (error) {
-    // Cache cleanup is maintenance and must never make calendar generation fail.
-    console.warn('Expired cache cleanup failed:', error.message);
-  }
-}
+// Cache TTL (4 hours)
+export const CACHE_TTL_HOURS = 4;
